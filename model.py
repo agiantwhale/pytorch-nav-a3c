@@ -31,12 +31,18 @@ def weights_init(m):
 class ActorCritic(torch.nn.Module):
     def __init__(self, num_inputs, action_space):
         super(ActorCritic, self).__init__()
-        self.conv1 = nn.Conv2d(num_inputs, 32, 3, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(num_inputs, 16, 8, stride=4, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, 4, stride=2, padding=1)
+        self.fc1 = nn.Linear(32 * 10 * 10, 256)
 
-        self.lstm = nn.LSTMCell(32 * 8 * 10, 256)
+        self.lstm1 = nn.LSTMCell(256 + 1, 64)
+        self.lstm2 = nn.LSTMCell(256 + 64 + 3 + 3, 256)
+
+        self.fc_d1_f = nn.Linear(256, 128)
+        self.fc_d2_f = nn.Linear(128, 64 * 8)
+
+        self.fc_d1_h = nn.Linear(256, 128)
+        self.fc_d2_h = nn.Linear(128, 64 * 8)
 
         num_outputs = action_space.n
         self.critic_linear = nn.Linear(256, 1)
@@ -50,20 +56,31 @@ class ActorCritic(torch.nn.Module):
             self.critic_linear.weight.data, 1.0)
         self.critic_linear.bias.data.fill_(0)
 
-        self.lstm.bias_ih.data.fill_(0)
-        self.lstm.bias_hh.data.fill_(0)
+        self.lstm1.bias_ih.data.fill_(0)
+        self.lstm1.bias_hh.data.fill_(0)
+        self.lstm2.bias_ih.data.fill_(0)
+        self.lstm2.bias_hh.data.fill_(0)
 
         self.train()
 
     def forward(self, inputs):
-        inputs, (hx, cx) = inputs
-        x = F.elu(self.conv1(inputs))
-        x = F.elu(self.conv2(x))
-        x = F.elu(self.conv3(x))
-        x = F.elu(self.conv4(x))
+        inputs, ((hx1, cx1), (hx2, cx2)) = inputs
+        observation, _, reward, velocity, action = inputs
+        x = F.selu(self.conv1(observation))
+        x = F.selu(self.conv2(x))
+        x = x.view(-1, 32 * 10 * 10)
+        x = F.selu(self.fc1(x))
+        f = x
 
-        x = x.view(-1, 32 * 8 * 10)
-        hx, cx = self.lstm(x, (hx, cx))
-        x = hx
+        hx1, cx1 = self.lstm1(torch.cat((x, reward), dim=1), (hx1, cx1))
+        x = hx1
+        hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
+        x = hx2
 
-        return self.critic_linear(x), self.actor_linear(x), (hx, cx)
+        d_f = self.fc_d1_f(f)
+        d_f = self.fc_d2_f(d_f)
+
+        d_h = self.fc_d1_h(hx2)
+        d_h = self.fc_d2_h(d_h)
+
+        return self.critic_linear(x), self.actor_linear(x), d_f, d_h, ((hx1, cx1), (hx2, cx2))

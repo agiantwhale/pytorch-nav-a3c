@@ -1,9 +1,8 @@
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.autograd import Variable
 
-from envs import create_vizdoom_env
+from envs import create_vizdoom_env, state_to_torch
 from model import ActorCritic
 
 
@@ -21,7 +20,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space)
+    model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
@@ -29,36 +28,30 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     model.train()
 
     state = env.reset()
-    state = torch.from_numpy(state)
     done = True
-
     episode_length = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
-        if done:
-            cx = Variable(torch.zeros(1, 256))
-            hx = Variable(torch.zeros(1, 256))
-        else:
-            cx = Variable(cx.data)
-            hx = Variable(hx.data)
 
         values = []
         log_probs = []
         rewards = []
         entropies = []
 
+        hidden = ((torch.zeros(1, 64, requires_grad=True), torch.zeros(1, 64, requires_grad=True)),
+                  (torch.zeros(1, 256, requires_grad=True), torch.zeros(1, 256, requires_grad=True)))
+
         for step in range(args.num_steps):
             episode_length += 1
-            value, logit, (hx, cx) = model((Variable(state.unsqueeze(0)),
-                                            (hx, cx)))
+            value, logit, depth_f, depth_h, hidden = model((state_to_torch(state), hidden))
             prob = F.softmax(logit)
             log_prob = F.log_softmax(logit)
             entropy = -(log_prob * prob).sum(1, keepdim=True)
             entropies.append(entropy)
 
-            action = prob.multinomial(1).data
-            log_prob = log_prob.gather(1, Variable(action))
+            action = prob.multinomial(1)
+            log_prob = log_prob.gather(1, action)
 
             state, reward, done, _ = env.step(action.numpy())
             done = done or episode_length >= args.max_episode_length
@@ -71,7 +64,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 episode_length = 0
                 state = env.reset()
 
-            state = torch.from_numpy(state)
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
@@ -81,13 +73,12 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         R = torch.zeros(1, 1)
         if not done:
-            value, _, _ = model((Variable(state.unsqueeze(0)), (hx, cx)))
+            value, _, _, _, _ = model((state_to_torch(state), hidden))
             R = value.data
 
-        values.append(Variable(R))
+        values.append(R)
         policy_loss = 0
         value_loss = 0
-        R = Variable(R)
         gae = torch.zeros(1, 1)
         for i in reversed(range(len(rewards))):
             R = args.gamma * R + rewards[i]
@@ -95,12 +86,10 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             value_loss = value_loss + 0.5 * advantage.pow(2)
 
             # Generalized Advantage Estimataion
-            delta_t = rewards[i] + args.gamma * \
-                values[i + 1].data - values[i].data
+            delta_t = rewards[i] + args.gamma * values[i + 1].data - values[i].data
             gae = gae * args.gamma * args.tau + delta_t
 
-            policy_loss = policy_loss - \
-                log_probs[i] * Variable(gae) - args.entropy_coef * entropies[i]
+            policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 
         optimizer.zero_grad()
 

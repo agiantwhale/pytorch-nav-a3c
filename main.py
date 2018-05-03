@@ -6,7 +6,6 @@ import os
 import torch
 import torch.multiprocessing as mp
 
-import my_optim
 from envs import create_vizdoom_env
 from model import ActorCritic
 from test import test
@@ -42,8 +41,6 @@ parser.add_argument('--train-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for training (default: ./doomfiles/3.wad)')
 parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
-parser.add_argument('--no-shared', default=False,
-                    help='use an optimizer without shared momentum.')
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
@@ -53,14 +50,8 @@ if __name__ == '__main__':
 
     torch.manual_seed(args.seed)
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
-    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
+    shared_model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
     shared_model.share_memory()
-
-    if args.no_shared:
-        optimizer = None
-    else:
-        optimizer = my_optim.SharedAdam(shared_model.parameters(), lr=args.lr)
-        optimizer.share_memory()
 
     processes = []
 
@@ -72,8 +63,9 @@ if __name__ == '__main__':
     processes.append(p)
 
     for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, None))
         p.start()
         processes.append(p)
+
     for p in processes:
         p.join()
