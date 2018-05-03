@@ -36,11 +36,14 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000000,
                     help='maximum length of an episode (default: 1000000)')
-parser.add_argument('--env-name', default='PongDeterministic-v4',
-                    help='environment to train on (default: PongDeterministic-v4)')
+parser.add_argument('--config-path', default='./doomfiles/default.cfg',
+                    help='ViZDoom configuration path (default: ./doomfiles/default.cfg)')
+parser.add_argument('--train-scenario-path', default='./doomfiles/3.wad',
+                    help='ViZDoom scenario path for training (default: ./doomfiles/3.wad)')
+parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
+                    help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
-
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
@@ -50,8 +53,7 @@ if __name__ == '__main__':
 
     torch.manual_seed(args.seed)
     env = create_atari_env(args.env_name)
-    shared_model = ActorCritic(
-        env.observation_space.shape[0], env.action_space)
+    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
     shared_model.share_memory()
 
     if args.no_shared:
