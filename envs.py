@@ -15,7 +15,6 @@ class ViZDoomEnv(gym.Env):
         game = vizdoom.DoomGame()
         game.load_config(config)
         game.set_doom_scenario_path(scenario)
-        game.set_mode(vizdoom.Mode.PLAYER)
         game.init()
         self.game = game
         self.scenario = scenario
@@ -34,7 +33,14 @@ class ViZDoomEnv(gym.Env):
         self.reset()
 
     def _get_state(self):
-        return self.game.get_state().screen_buffer
+        state = self.game.get_state()
+        if state is None:
+            screen_buffer = np.zeros((self.game.get_screen_channels(),
+                                      self.game.get_screen_height(),
+                                      self.game.get_screen_width()))
+        else:
+            screen_buffer = state.screen_buffer
+        return (screen_buffer / 255.).astype(np.float32)
 
     def seed(self, seed=None):
         if seed is not None:
@@ -42,18 +48,19 @@ class ViZDoomEnv(gym.Env):
         return [seed]
 
     def step(self, action):
-        reward = self.game.make_action(self.actions[action])
+        reward = self.game.make_action(self.actions[np.asscalar(action)])
         done = self.game.is_episode_finished()
-        state = self._get_state() if not done else None
+        state = self._get_state()
         self.episode_reward += reward
         self.step_counter += 1
         return state, reward, done, {}
 
     def reset(self):
-        self.game.new_episode(np.random.choice(self.wad.maps.keys()))
+        next_map = np.random.choice(self.wad.maps.keys())
+        self.game.new_episode(next_map)
         self.episode_reward = 0.0
         self.step_counter = 0
-        return self.game.get_state()
+        return self._get_state()
 
     def render(self, mode='rgb_array'):
         if mode == 'human':
@@ -80,7 +87,7 @@ def create_atari_env(env_id):
     return env
 
 
-def ceeate_vizdoom_env(config, scenario):
+def create_vizdoom_env(config, scenario):
     env = ViZDoomEnv(config, scenario)
     env = NormalizedEnv(env)
     return env

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-from envs import create_atari_env
+from envs import create_vizdoom_env
 from model import ActorCritic
 
 
@@ -18,7 +18,7 @@ def ensure_shared_grads(model, shared_model):
 def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
-    env = create_atari_env(args.env_name)
+    env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.shape[0], env.action_space)
@@ -57,7 +57,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             entropy = -(log_prob * prob).sum(1, keepdim=True)
             entropies.append(entropy)
 
-            action = prob.multinomial().data
+            action = prob.multinomial(1).data
             log_prob = log_prob.gather(1, Variable(action))
 
             state, reward, done, _ = env.step(action.numpy())

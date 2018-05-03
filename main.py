@@ -7,7 +7,7 @@ import torch
 import torch.multiprocessing as mp
 
 import my_optim
-from envs import create_atari_env
+from envs import create_vizdoom_env
 from model import ActorCritic
 from test import test
 from train import train
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    env = create_atari_env(args.env_name)
+    env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
     shared_model.share_memory()
 

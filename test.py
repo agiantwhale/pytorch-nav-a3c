@@ -5,14 +5,14 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from envs import create_atari_env
+from envs import create_vizdoom_env
 from model import ActorCritic
 
 
 def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
-    env = create_atari_env(args.env_name)
+    env = create_vizdoom_env(args.config_path, args.test_scenario_path)
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.shape[0], env.action_space)
