@@ -58,15 +58,19 @@ parser.add_argument('--checkpoint-path', help='path to save models')
 args = parser.parse_args()
 
 
-def build_logger(build_state):
+def build_logger(build_state, checkpoint=None):
     vis = Visdom()
     env = 'NavA3C'
     wins = dict()
+
+    if checkpoint and 'plots' in checkpoint:
+        wins = checkpoint['plots']
 
     def _save_checkpoint(step):
         if step % args.save_interval != 0 or args.checkpoint_path is None:
             return
         state = build_state()
+        state['plots'] = wins
         torch.save(state, args.checkpoint_path)
 
     def _log_grad_norm(grad_norm, step):
@@ -74,7 +78,7 @@ def build_logger(build_state):
             return
         norm = grad_norm.numpy()
         win_id = wins.setdefault('grad_norm')
-        if win_id is None:
+        if win_id is None or vis.win_exists(win_id):
             wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
                                             opts=dict(title='gradient norm'))
         else:
@@ -88,7 +92,7 @@ def build_logger(build_state):
             return
         win_name = 'total_reward_{}'.format(mode)
         win_id = wins.setdefault(win_name)
-        if win_id is None:
+        if win_id is None or vis.win_exists(win_id):
             wins[win_name] = vis.line(np.array([0, 0]), win=win_id, env=env,
                                       opts=dict(title='{} reward'.format(mode)))
         else:
@@ -129,12 +133,15 @@ if __name__ == '__main__':
         counter.value = checkpoint['episodes']
         shared_model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+    else:
+        checkpoint = None
 
     processes = []
 
     logging = build_logger(lambda: dict(episodes=counter.value,
                                         model=shared_model.state_dict(),
-                                        optimizer=optimizer.state_dict()))
+                                        optimizer=optimizer.state_dict()),
+                           checkpoint)
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging))
     p.start()
