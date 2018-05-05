@@ -3,9 +3,9 @@ import gym
 import torch
 import numpy as np
 import vizdoom
-from gym.spaces.box import Box
 import matplotlib.pyplot as plt
-from omg import WAD
+from omg import WAD, MapEditor
+from PIL import Image, ImageDraw
 
 
 class ViZDoomEnv(gym.Env):
@@ -29,10 +29,26 @@ class ViZDoomEnv(gym.Env):
                                                    gym.spaces.Box(-1, 1, (0,), dtype=np.float32),
                                                    gym.spaces.Discrete(num_buttons),
                                                    gym.spaces.Box(-1, 1, (3,), dtype=np.float32)))
+        self.current_map = None
         self.episode_reward = 0.0
         self.step_counter = 0
         self.seed()
         self.reset()
+
+    def screen(self):
+        state = self.game.get_state()
+        return np.moveaxis(state.screen_buffer, 0, -1) if state else None
+
+    def pose(self):
+        return (self.game.get_game_variable(vizdoom.GameVariable.POSITION_X),
+                self.game.get_game_variable(vizdoom.GameVariable.POSITION_Y),
+                self.game.get_game_variable(vizdoom.GameVariable.POSITION_Z),
+                self.game.get_game_variable(vizdoom.GameVariable.ANGLE))
+
+    def goal(self):
+        return (self.game.get_game_variable(vizdoom.USER1),
+                self.game.get_game_variable(vizdoom.USER2),
+                self.game.get_game_variable(vizdoom.USER3))
 
     def _state(self):
         state = self.game.get_state()
@@ -90,6 +106,7 @@ class ViZDoomEnv(gym.Env):
 
     def reset(self):
         next_map = np.random.choice(self.wad.maps.keys())
+        self.current_map = next_map
         self.game.new_episode(next_map)
         self.episode_reward = 0.0
         self.step_counter = 0
@@ -119,3 +136,69 @@ def create_vizdoom_env(config, scenario):
 
 def state_to_torch(state):
     return (torch.from_numpy(t).unsqueeze(0) for t in state)
+
+
+def drawmap(wad, name, height):
+    ysize = height - 8
+
+    edit = MapEditor(wad.maps[name])
+    xmin = ymin = 32767
+    xmax = ymax = -32768
+    for v in edit.vertexes:
+        xmin = min(xmin, v.x)
+        xmax = max(xmax, v.x)
+        ymin = min(ymin, -v.y)
+        ymax = max(ymax, -v.y)
+
+    scale = ysize / float(ymax - ymin)
+    xmax = int(xmax * scale)
+    xmin = int(xmin * scale)
+    ymax = int(ymax * scale)
+    ymin = int(ymin * scale)
+
+    for v in edit.vertexes:
+        v.x = v.x * scale
+        v.y = -v.y * scale
+
+    im = Image.new('RGB', ((xmax - xmin) + 8, (ymax - ymin) + 8), (255, 255, 255))
+    draw = ImageDraw.Draw(im)
+    edit.linedefs.sort(key=lambda a: not a.two_sided)
+
+    for line in edit.linedefs:
+        p1x = edit.vertexes[line.vx_a].x - xmin + 4
+        p1y = edit.vertexes[line.vx_a].y - ymin + 4
+        p2x = edit.vertexes[line.vx_b].x - xmin + 4
+        p2y = edit.vertexes[line.vx_b].y - ymin + 4
+
+        color = (0, 0, 0)
+        if line.two_sided:
+            color = (144, 144, 144)
+        if line.action:
+            color = (220, 130, 50)
+
+        draw.line((p1x, p1y, p2x, p2y), fill=color)
+        draw.line((p1x + 1, p1y, p2x + 1, p2y), fill=color)
+        draw.line((p1x - 1, p1y, p2x - 1, p2y), fill=color)
+        draw.line((p1x, p1y + 1, p2x, p2y + 1), fill=color)
+        draw.line((p1x, p1y - 1, p2x, p2y - 1), fill=color)
+
+    del draw
+
+    return np.array(im), xmin, ymin, scale
+
+
+def trajectory_to_video(wad, name, height, history, goal):
+    empty_map, xmin, ymin, scale = drawmap(wad, name, height)
+    cv2.circle(empty_map, (int(goal[0] * scale) - xmin + 4, int(goal[1] * scale) - ymin + 4), 4, (82, 82, 255), -1)
+
+    frames = []
+    last_img = empty_map
+    for pose in history:
+        x, y, z, rot = pose
+
+        frame = last_img.copy()
+        cv2.circle(frame, (int(x * scale) - xmin + 4, int(y * scale) - ymin + 4), 4, (63, 121, 255), -1)
+        frames.append(frame)
+        last_img = frame
+
+    return frames

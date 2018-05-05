@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import cv2
 import numpy as np
 
 import torch
@@ -54,7 +55,8 @@ parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('--save-interval', type=int, default=20,
                     help='save model every n episodes (default: 20)')
-parser.add_argument('--checkpoint-path', help='path to save models')
+parser.add_argument('--checkpoint-path', help='file path to save models')
+parser.add_argument('--video-path', help='file path to save video')
 args = parser.parse_args()
 
 
@@ -101,7 +103,22 @@ def build_logger(build_state, checkpoint=None):
 
         vis.save([env])
 
-    return dict(grad_norm=_log_grad_norm,
+    def _log_video(video, step):
+        if step % args.log_interval != 0 or not vis.check_connection():
+            return
+        if args.video_path is None:
+            return
+
+        videofile = args.video_path
+        fourcc = cv2.VideoWriter_fourcc(*'VP80')
+        writer = cv2.VideoWriter(videofile, fourcc, 30, (video[0].shape[0], video[0].shape[1]))
+        assert writer.isOpened(), 'video writer could not be opened'
+        for frame in video:
+            writer.write(frame)
+        writer.release()
+
+    return dict(video=_log_video,
+                grad_norm=_log_grad_norm,
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
                 test_reward=lambda r, s: _log_reward(r, s, 'test'),
                 checkpoint=_save_checkpoint)

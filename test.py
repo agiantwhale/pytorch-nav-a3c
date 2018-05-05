@@ -1,11 +1,12 @@
 import time
 from collections import deque
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from envs import create_vizdoom_env, state_to_torch
+from envs import create_vizdoom_env, state_to_torch, trajectory_to_video
 from model import ActorCritic
 
 
@@ -30,6 +31,12 @@ def test(rank, args, shared_model, counter, loggers=None):
               (torch.zeros(1, 256), torch.zeros(1, 256)))
     actions = deque(maxlen=100)
     episode_length = 0
+    episode_counter = 0
+
+    obs_history = []
+    pose_history = []
+    goal_loc = env.goal()
+
     while True:
         episode_length += 1
         # Sync with the shared model
@@ -40,7 +47,12 @@ def test(rank, args, shared_model, counter, loggers=None):
         prob = F.softmax(logit)
         action = prob.max(1, keepdim=True)[1].data.numpy()
 
+        if not done:
+            obs_history.append(env.screen())
+            pose_history.append(env.pose())
+
         state, reward, done, _ = env.step(action[0, 0])
+
         # done = done or episode_length >= args.max_episode_length
         reward_sum += reward
 
@@ -50,6 +62,14 @@ def test(rank, args, shared_model, counter, loggers=None):
         #     done = True
 
         if done:
+            if loggers:
+                loggers['test_reward'](env.game.get_total_reward(), episode_counter)
+                traj_video = trajectory_to_video(env.wad, env.current_map, obs_history[0].shape[0],
+                                                 pose_history, goal_loc)
+                video = [np.append(obs, trj, axis=1)
+                         for obs, trj in zip(obs_history, traj_video)]
+                loggers['video'](video, episode_counter)
+
             print("Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".format(
                 time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)),
                 counter.value, counter.value / (time.time() - start_time),
@@ -58,4 +78,12 @@ def test(rank, args, shared_model, counter, loggers=None):
             episode_length = 0
             actions.clear()
             state = env.reset()
+
+            obs_history = []
+            pose_history = []
+            goal_loc = env.goal()
+
             time.sleep(60)
+
+            episode_counter += 1
+
