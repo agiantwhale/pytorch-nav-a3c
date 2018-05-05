@@ -34,6 +34,8 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 4)')
+parser.add_argument('--num-torch-threads', type=int,
+                    help='Number of torch threads')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000000,
@@ -45,11 +47,30 @@ parser.add_argument('--train-scenario-path', default='./doomfiles/3.wad',
 parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
 
+
+def build_logger():
+    vis = Visdom()
+    wins = dict()
+
+    def _log_grad_norm(grad_norm, step):
+        if not vis.check_connection():
+            return
+        norm = grad_norm.numpy()
+        win_id = wins.setdefault('grad_norm')
+        wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id,
+                                        update='append' if win_id else None)
+
+    return dict(grad_norm=_log_grad_norm)
+
+
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
     args = parser.parse_args()
+
+    if args.num_torch_threads:
+        torch.set_num_threads(args.num_torch_threads)
 
     torch.manual_seed(args.seed)
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
@@ -61,17 +82,7 @@ if __name__ == '__main__':
     counter = mp.Value('i', 0)
     lock = mp.Lock()
 
-    vis = Visdom()
-    wins = dict()
-
-
-    def _log_grad_norm(grad_norm, step):
-        wins['grad_norm'] = vis.scatter(X=np.array([grad_norm, step]),
-                                        win=wins.setdefault('grad_norm'),
-                                        update='append' if 'grad_norm' in wins else None)
-
-
-    logging = dict(grad_norm=_log_grad_norm)
+    logging = build_logger()
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging))
     p.start()
