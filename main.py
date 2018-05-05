@@ -54,7 +54,7 @@ parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('--save-interval', type=int, default=20,
                     help='save model every n episodes (default: 20)')
-parser.add_argument('--model-path', help='path to save models')
+parser.add_argument('--checkpoint-path', help='path to save models')
 args = parser.parse_args()
 
 
@@ -64,10 +64,10 @@ def build_logger(build_state):
     wins = dict()
 
     def _save_checkpoint(step):
-        if step % args.save_interval != 0 or args.model_path is None:
+        if step % args.save_interval != 0 or args.checkpoint_path is None:
             return
         state = build_state()
-        torch.save(state, args.model_path)
+        torch.save(state, args.checkpoint_path)
 
     def _log_grad_norm(grad_norm, step):
         if step % args.log_interval != 0 or not vis.check_connection():
@@ -124,8 +124,8 @@ if __name__ == '__main__':
         optimizer = SharedAdam(shared_model.parameters(), lr=args.lr)
         optimizer.share_memory()
 
-    if args.model_path and os.path.isfile(args.model_path):
-        checkpoint = torch.load(args.model_path)
+    if args.checkpoint_path and os.path.isfile(args.checkpoint_path):
+        checkpoint = torch.load(args.checkpoint_path)
         counter.value = checkpoint['episodes']
         shared_model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
