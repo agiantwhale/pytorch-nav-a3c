@@ -9,7 +9,7 @@ from envs import create_vizdoom_env, state_to_torch
 from model import ActorCritic
 
 
-def test(rank, args, shared_model, counter):
+def test(rank, args, shared_model, counter, loggers=None):
     torch.manual_seed(args.seed + rank)
 
     env = create_vizdoom_env(args.config_path, args.test_scenario_path)

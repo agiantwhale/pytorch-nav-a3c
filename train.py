@@ -14,7 +14,7 @@ def ensure_shared_grads(model, shared_model):
         shared_param._grad = param.grad
 
 
-def train(rank, args, shared_model, counter, lock, optimizer=None):
+def train(rank, args, shared_model, counter, lock, optimizer=None, loggers=None):
     torch.manual_seed(args.seed + rank)
 
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
@@ -54,11 +54,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             log_prob = log_prob.gather(1, action)
 
             state, reward, done, _ = env.step(action.numpy())
-            done = done or episode_length >= args.max_episode_length
+            # done = done or episode_length >= args.max_episode_length
             reward = max(min(reward, 1), -1)
-
-            with lock:
-                counter.value += 1
 
             if done:
                 episode_length = 0
@@ -92,9 +89,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 
         optimizer.zero_grad()
-
         (policy_loss + args.value_loss_coef * value_loss).backward()
-        torch.nn.utils.clip_grad_norm(model.parameters(), args.max_grad_norm)
-
+        grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), args.max_grad_norm)
         ensure_shared_grads(model, shared_model)
         optimizer.step()
+
+        with lock:
+            counter.value += 1
+
+        if loggers is not None:
+            loggers['grad_norm'](grad_norm, counter.value)

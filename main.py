@@ -2,9 +2,12 @@ from __future__ import print_function
 
 import argparse
 import os
+import numpy as np
 
 import torch
 import torch.multiprocessing as mp
+
+from visdom import Visdom
 
 from envs import create_vizdoom_env
 from model import ActorCritic
@@ -58,12 +61,24 @@ if __name__ == '__main__':
     counter = mp.Value('i', 0)
     lock = mp.Lock()
 
-    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
+    vis = Visdom()
+    wins = dict()
+
+
+    def _log_grad_norm(grad_norm, step):
+        wins['grad_norm'] = vis.scatter(X=np.array([grad_norm, step]),
+                                        win=wins.setdefault('grad_norm'),
+                                        update='append' if 'grad_norm' in wins else None)
+
+
+    logging = dict(grad_norm=_log_grad_norm)
+
+    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging))
     p.start()
     processes.append(p)
 
     for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, None))
+        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, None, logging))
         p.start()
         processes.append(p)
 
