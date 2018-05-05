@@ -50,9 +50,8 @@ def test(rank, args, shared_model, counter, loggers=None):
         #     done = True
 
         if done:
-            print("Time {}, num steps {}, FPS {:.0f}, episode reward {}, episode length {}".format(
-                time.strftime("%Hh %Mm %Ss",
-                              time.gmtime(time.time() - start_time)),
+            print("Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".format(
+                time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)),
                 counter.value, counter.value / (time.time() - start_time),
                 reward_sum, episode_length))
             reward_sum = 0

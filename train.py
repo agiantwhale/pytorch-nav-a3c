@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-import torch.optim as optim
 
 from envs import create_vizdoom_env, state_to_torch
 from model import ActorCritic
@@ -14,16 +13,13 @@ def ensure_shared_grads(model, shared_model):
         shared_param._grad = param.grad
 
 
-def train(rank, args, shared_model, counter, lock, optimizer=None, loggers=None):
+def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
     torch.manual_seed(args.seed + rank)
 
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
-
-    if optimizer is None:
-        optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
 
     model.train()
 
@@ -55,7 +51,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None, loggers=None)
 
             state, reward, done, _ = env.step(action.numpy())
             # done = done or episode_length >= args.max_episode_length
-            reward = max(min(reward, 1), -1)
 
             if done:
                 episode_length = 0
@@ -71,7 +66,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None, loggers=None)
         R = torch.zeros(1, 1)
         if not done:
             value, _, _, _, _ = model((state_to_torch(state), hidden))
-            R = value.data
+            R = value
 
         values.append(R)
         policy_loss = 0
@@ -83,9 +78,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None, loggers=None)
             value_loss = value_loss + 0.5 * advantage.pow(2)
 
             # Generalized Advantage Estimataion
-            delta_t = rewards[i] + args.gamma * values[i + 1].data - values[i].data
+            delta_t = rewards[i] + args.gamma * values[i + 1] - values[i]
             gae = gae * args.gamma * args.tau + delta_t
-
             policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 
         optimizer.zero_grad()

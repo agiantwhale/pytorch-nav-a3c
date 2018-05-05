@@ -6,6 +6,7 @@ import numpy as np
 
 import torch
 import torch.multiprocessing as mp
+from torch.optim import Adam
 
 from visdom import Visdom
 
@@ -13,6 +14,7 @@ from envs import create_vizdoom_env
 from model import ActorCritic
 from test import test
 from train import train
+from optim import SharedAdam
 
 # Based on
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
@@ -38,6 +40,8 @@ parser.add_argument('--num-torch-threads', type=int,
                     help='Number of torch threads')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
+parser.add_argument('--log-interval', type=int, default=20,
+                    help='logging interval (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000000,
                     help='maximum length of an episode (default: 1000000)')
 parser.add_argument('--config-path', default='./doomfiles/default.cfg',
@@ -46,6 +50,9 @@ parser.add_argument('--train-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for training (default: ./doomfiles/3.wad)')
 parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
+parser.add_argument('--no-shared', default=False,
+                    help='use an optimizer without shared momentum.')
+args = parser.parse_args()
 
 
 def build_logger():
@@ -53,6 +60,18 @@ def build_logger():
     wins = dict()
 
     def _log_grad_norm(grad_norm, step):
+        if step % args.log_interval != 0:
+            return
+        if not vis.check_connection():
+            return
+        norm = grad_norm.numpy()
+        win_id = wins.setdefault('grad_norm')
+        wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id,
+                                        update='append' if win_id else None)
+
+    def _log_grad_norm(grad_norm, step):
+        if step % args.log_interval != 0:
+            return
         if not vis.check_connection():
             return
         norm = grad_norm.numpy()
@@ -67,8 +86,6 @@ if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    args = parser.parse_args()
-
     if args.num_torch_threads:
         torch.set_num_threads(args.num_torch_threads)
 
@@ -76,6 +93,12 @@ if __name__ == '__main__':
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     shared_model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
     shared_model.share_memory()
+
+    if args.no_shared:
+        optimizer = Adam(shared_model.parameters(), lr=args.lr)
+    else:
+        optimizer = SharedAdam(shared_model.parameters(), lr=args.lr)
+        optimizer.share_memory()
 
     processes = []
 
@@ -89,7 +112,7 @@ if __name__ == '__main__':
     processes.append(p)
 
     for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, None, logging))
+        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer, logging))
         p.start()
         processes.append(p)
 
