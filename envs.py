@@ -71,7 +71,7 @@ class ViZDoomEnv(gym.Env):
             depth_buffer /= 255.
             depth_buffer = np.power(1. - depth_buffer, 10)
             depth_buffer = np.digitize(depth_buffer, bins)
-            depth_buffer = np.eye(len(bins))[depth_buffer]
+            depth_buffer = np.eye(len(bins) + 1)[depth_buffer]
         else:
             screen_buffer = np.zeros((3, 84, 84))
             depth_buffer = np.zeros((1, 4, 16))
