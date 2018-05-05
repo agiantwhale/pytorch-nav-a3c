@@ -110,12 +110,16 @@ def build_logger(build_state, checkpoint=None):
             return
 
         videofile = args.video_path
-        fourcc = cv2.VideoWriter_fourcc(*'VP80')
-        writer = cv2.VideoWriter(videofile, fourcc, 30, (video[0].shape[0], video[0].shape[1]))
+        if videofile.endswith('.webm'):
+            fourcc = cv2.VideoWriter_fourcc(*'VP80')
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*'THEO')
+        writer = cv2.VideoWriter(videofile, fourcc, 30, (video[0].shape[1], video[0].shape[0]))
         assert writer.isOpened(), 'video writer could not be opened'
         for frame in video:
             writer.write(frame)
         writer.release()
+        del writer
 
     return dict(video=_log_video,
                 grad_norm=_log_grad_norm,
