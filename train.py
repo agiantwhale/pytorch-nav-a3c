@@ -92,4 +92,6 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
             counter.value += 1
 
         if loggers is not None:
+            loggers['checkpoint'](counter.value)
             loggers['grad_norm'](grad_norm, counter.value)
+            loggers['train_reward'](sum(rewards), counter.value)

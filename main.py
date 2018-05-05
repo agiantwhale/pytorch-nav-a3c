@@ -52,39 +52,63 @@ parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
                     help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
+parser.add_argument('--save-interval', type=int, default=20,
+                    help='save model every n episodes (default: 20)')
+parser.add_argument('--model-path', help='path to save models')
 args = parser.parse_args()
 
 
-def build_logger():
+def build_logger(build_state):
     vis = Visdom()
+    env = 'NavA3C'
     wins = dict()
 
+    def _save_checkpoint(step):
+        if step % args.save_interval != 0 or args.model_path is None:
+            return
+        state = build_state()
+        torch.save(state, args.model_path)
+
     def _log_grad_norm(grad_norm, step):
+        if step % args.log_interval != 0 or not vis.check_connection():
+            return
+        norm = grad_norm.numpy()
+        win_id = wins.setdefault('grad_norm')
+        if win_id is None:
+            wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
+                                            opts=dict(title='gradient norm'))
+        else:
+            vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env, update='append')
+        vis.save([env])
+
+    def _log_reward(total_reward, step, mode):
         if step % args.log_interval != 0:
             return
         if not vis.check_connection():
             return
-        norm = grad_norm.numpy()
-        win_id = wins.setdefault('grad_norm')
-        wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id,
-                                        update='append' if win_id else None)
+        win_name = 'total_reward_{}'.format(mode)
+        win_id = wins.setdefault(win_name)
+        if win_id is None:
+            wins[win_name] = vis.line(np.array([0, 0]), win=win_id, env=env,
+                                      opts=dict(title='{} reward'.format(mode)))
+        else:
+            vis.line(Y=np.array([total_reward]), X=np.array([step]),
+                     win=win_id, env=env, update='append')
 
-    def _log_grad_norm(grad_norm, step):
-        if step % args.log_interval != 0:
-            return
-        if not vis.check_connection():
-            return
-        norm = grad_norm.numpy()
-        win_id = wins.setdefault('grad_norm')
-        wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id,
-                                        update='append' if win_id else None)
+        vis.save([env])
 
-    return dict(grad_norm=_log_grad_norm)
+    return dict(grad_norm=_log_grad_norm,
+                train_reward=lambda r, s: _log_reward(r, s, 'train'),
+                test_reward=lambda r, s: _log_reward(r, s, 'test'),
+                checkpoint=_save_checkpoint)
 
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
+
+    counter = mp.Value('i', 0)
+    lock = mp.Lock()
 
     if args.num_torch_threads:
         torch.set_num_threads(args.num_torch_threads)
@@ -100,12 +124,17 @@ if __name__ == '__main__':
         optimizer = SharedAdam(shared_model.parameters(), lr=args.lr)
         optimizer.share_memory()
 
+    if args.model_path and os.path.isfile(args.model_path):
+        checkpoint = torch.load(args.model_path)
+        counter.value = checkpoint['episodes']
+        shared_model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+
     processes = []
 
-    counter = mp.Value('i', 0)
-    lock = mp.Lock()
-
-    logging = build_logger()
+    logging = build_logger(lambda: dict(episodes=counter.value,
+                                        model=shared_model.state_dict(),
+                                        optimizer=optimizer.state_dict()))
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging))
     p.start()
