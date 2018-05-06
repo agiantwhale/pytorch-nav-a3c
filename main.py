@@ -70,7 +70,9 @@ def build_logger(build_state, checkpoint=None):
     wins = dict()
 
     if checkpoint and 'plots' in checkpoint:
-        wins = checkpoint['plots']
+        wins = dict((name, id)
+                    for name, id in checkpoint['plots'].items()
+                    if vis.win_exists(id, env))
 
     def _save_checkpoint(step):
         if step % args.save_interval != 0 or args.checkpoint_path is None:
@@ -84,7 +86,7 @@ def build_logger(build_state, checkpoint=None):
             return
         norm = grad_norm.numpy()
         win_id = wins.setdefault('grad_norm')
-        if win_id is None or vis.win_exists(win_id):
+        if win_id is None:
             wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
                                             opts=dict(title='gradient norm'))
         else:
@@ -92,13 +94,11 @@ def build_logger(build_state, checkpoint=None):
         vis.save([env])
 
     def _log_reward(total_reward, step, mode):
-        if step % args.log_interval != 0:
-            return
-        if not vis.check_connection():
+        if step % args.log_interval != 0 or not vis.check_connection():
             return
         win_name = 'total_reward_{}'.format(mode)
         win_id = wins.setdefault(win_name)
-        if win_id is None or vis.win_exists(win_id):
+        if win_id is None:
             wins[win_name] = vis.line(np.array([0, 0]), win=win_id, env=env,
                                       opts=dict(title='{} reward'.format(mode)))
         else:
@@ -113,7 +113,17 @@ def build_logger(build_state, checkpoint=None):
         if args.video_path is None:
             return
 
-        skvideo.io.vwrite(args.video_path, np.array(video))
+        video_path = os.path.abspath(args.video_path)
+        skvideo.io.vwrite(video_path, np.array(video))
+
+        win_name = 'last test episode'
+        win_id = wins.setdefault(win_name)
+        if win_id is None:
+            wins[win_name] = vis.video(videofile=video_path, win=win_id, env=env,
+                                       opts=dict(title='episode {}'.format(step)))
+        else:
+            vis.video(videofile=video_path, win=win_id, env=env,
+                      opts=dict(title='episode {}'.format(step)))
 
     return dict(video=_log_video, grad_norm=_log_grad_norm,
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
