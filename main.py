@@ -67,7 +67,7 @@ args = parser.parse_args()
 def build_logger(build_state, checkpoint=None):
     vis = Visdom()
     env = 'NavA3C'
-    wins = dict()
+    wins = mp.Manager().dict()
 
     if checkpoint and 'plots' in checkpoint:
         wins = dict((name, id)
@@ -78,7 +78,7 @@ def build_logger(build_state, checkpoint=None):
         if step % args.save_interval != 0 or args.checkpoint_path is None:
             return
         state = build_state()
-        state['plots'] = wins
+        state['plots'] = dict(wins)
         torch.save(state, args.checkpoint_path)
 
     def _log_grad_norm(grad_norm, step):
@@ -116,7 +116,7 @@ def build_logger(build_state, checkpoint=None):
         video_path = os.path.abspath(args.video_path)
         skvideo.io.vwrite(video_path, np.array(video))
 
-        win_name = 'last test episode'
+        win_name = 'last_test_episode'
         win_id = wins.setdefault(win_name)
         if win_id is None:
             wins[win_name] = vis.video(videofile=video_path, win=win_id, env=env,
@@ -124,6 +124,8 @@ def build_logger(build_state, checkpoint=None):
         else:
             vis.video(videofile=video_path, win=win_id, env=env,
                       opts=dict(title='episode {}'.format(step)))
+
+        vis.save([env])
 
     return dict(video=_log_video, grad_norm=_log_grad_norm,
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
