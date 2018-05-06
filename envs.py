@@ -116,7 +116,8 @@ class ViZDoomEnv(gym.Env):
     def reset(self):
         next_map = np.random.choice(self.wad.maps.keys())
         self.current_map = next_map
-        self.game.new_episode(next_map)
+        self.game.set_doom_map(next_map)
+        self.game.new_episode()
         self.episode_reward = 0.0
         self.step_counter = 0
         return self._state()
@@ -148,8 +149,6 @@ def state_to_torch(state):
 
 
 def drawmap(wad, name, height):
-    ysize = height - 8
-
     edit = MapEditor(wad.maps[name])
     xmin = ymin = 32767
     xmax = ymax = -32768
@@ -159,7 +158,7 @@ def drawmap(wad, name, height):
         ymin = min(ymin, -v.y)
         ymax = max(ymax, -v.y)
 
-    scale = ysize / float(ymax - ymin)
+    scale = height / float(ymax - ymin)
     xmax = int(xmax * scale)
     xmin = int(xmin * scale)
     ymax = int(ymax * scale)
@@ -169,15 +168,15 @@ def drawmap(wad, name, height):
         v.x = v.x * scale
         v.y = -v.y * scale
 
-    im = Image.new('RGB', ((xmax - xmin) + 8, (ymax - ymin) + 8), (255, 255, 255))
+    im = Image.new('RGB', (xmax - xmin, ymax - ymin), (255, 255, 255))
     draw = ImageDraw.Draw(im)
     edit.linedefs.sort(key=lambda a: not a.two_sided)
 
     for line in edit.linedefs:
-        p1x = edit.vertexes[line.vx_a].x - xmin + 4
-        p1y = edit.vertexes[line.vx_a].y - ymin + 4
-        p2x = edit.vertexes[line.vx_b].x - xmin + 4
-        p2y = edit.vertexes[line.vx_b].y - ymin + 4
+        p1x = edit.vertexes[line.vx_a].x - xmin
+        p1y = edit.vertexes[line.vx_a].y - ymin
+        p2x = edit.vertexes[line.vx_b].x - xmin
+        p2y = edit.vertexes[line.vx_b].y - ymin
 
         color = (0, 0, 0)
         if line.two_sided:
@@ -198,16 +197,23 @@ def drawmap(wad, name, height):
 
 def trajectory_to_video(wad, name, height, history, goal):
     empty_map, xmin, ymin, scale = drawmap(wad, name, height)
-    cv2.circle(empty_map, (int(goal[0] * scale) - xmin + 4, int(- goal[1] * scale) - ymin + 4), 4, (255, 0, 0), -1)
+    cv2.circle(empty_map, (int(goal[0] * scale) - xmin, int(- goal[1] * scale) - ymin), 2, (255, 0, 0), -1)
 
     frames = []
     last_img = empty_map
     for pose in history:
         x, y, z, rot = pose
+        rot = - np.deg2rad(rot)
+
+        point = (int(x * scale) - xmin, int(- y * scale) - ymin)
+        shift = (point[0] + int(10 * np.cos(rot)), point[1] + int(10 * np.sin(rot)))
 
         frame = last_img.copy()
-        cv2.circle(frame, (int(x * scale) - xmin + 4, int(- y * scale) - ymin + 4), 4, (0, 0, 255), -1)
-        frames.append(frame)
+        cv2.circle(frame, point, 2, (0, 0, 255), -1)
         last_img = frame
+
+        dir_frame = frame.copy()
+        cv2.line(dir_frame, point, shift, (0, 0, 255), 2)
+        frames.append(dir_frame)
 
     return frames
