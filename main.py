@@ -31,6 +31,10 @@ parser.add_argument('--entropy-coef', type=float, default=0.01,
                     help='entropy term coefficient (default: 0.01)')
 parser.add_argument('--value-loss-coef', type=float, default=0.5,
                     help='value loss coefficient (default: 0.5)')
+parser.add_argument('--conv-depth-loss-coef', type=float, default=10,
+                    help='value loss coefficient (default: 0.5)')
+parser.add_argument('--lstm-depth-loss-coef', type=float, default=10,
+                    help='value loss coefficient (default: 0.5)')
 parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
@@ -47,10 +51,10 @@ parser.add_argument('--max-episode-length', type=int, default=1000000,
                     help='maximum length of an episode (default: 1000000)')
 parser.add_argument('--config-path', default='./doomfiles/default.cfg',
                     help='ViZDoom configuration path (default: ./doomfiles/default.cfg)')
-parser.add_argument('--train-scenario-path', default='./doomfiles/3.wad',
-                    help='ViZDoom scenario path for training (default: ./doomfiles/3.wad)')
-parser.add_argument('--test-scenario-path', default='./doomfiles/3.wad',
-                    help='ViZDoom scenario path for testing (default: ./doomfiles/3.wad)')
+parser.add_argument('--train-scenario-path', default='./doomfiles/11.wad',
+                    help='ViZDoom scenario path for training (default: ./doomfiles/11.wad)')
+parser.add_argument('--test-scenario-path', default='./doomfiles/11.wad',
+                    help='ViZDoom scenario path for testing (default: ./doomfiles/11.wad)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('--save-interval', type=int, default=20,
@@ -109,14 +113,9 @@ def build_logger(build_state, checkpoint=None):
         if args.video_path is None:
             return
 
-        videofile = args.video_path
-        if os.path.isfile(videofile):
-            os.remove(videofile)
+        skvideo.io.vwrite(args.video_path, np.array(video))
 
-        skvideo.io.vwrite(videofile, np.array(video))
-
-    return dict(video=_log_video,
-                grad_norm=_log_grad_norm,
+    return dict(video=_log_video, grad_norm=_log_grad_norm,
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
                 test_reward=lambda r, s: _log_reward(r, s, 'test'),
                 checkpoint=_save_checkpoint)

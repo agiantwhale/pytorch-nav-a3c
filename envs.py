@@ -40,20 +40,27 @@ class ViZDoomEnv(gym.Env):
         return np.moveaxis(state.screen_buffer, 0, -1) if state else None
 
     def pose(self):
-        return (self.game.get_game_variable(vizdoom.GameVariable.POSITION_X),
+        data = (self.game.get_game_variable(vizdoom.GameVariable.POSITION_X),
                 self.game.get_game_variable(vizdoom.GameVariable.POSITION_Y),
                 self.game.get_game_variable(vizdoom.GameVariable.POSITION_Z),
                 self.game.get_game_variable(vizdoom.GameVariable.ANGLE))
 
+        return data
+
     def goal(self):
-        return (self.game.get_game_variable(vizdoom.USER1),
+        data = (self.game.get_game_variable(vizdoom.USER1),
                 self.game.get_game_variable(vizdoom.USER2),
                 self.game.get_game_variable(vizdoom.USER3))
+
+        data = tuple(vizdoom.doom_fixed_to_double(x) for x in data)
+
+        return data
 
     def _state(self):
         state = self.game.get_state()
 
         # Camera Input
+        depth_bins = [0.05, 0.175, 0.3, 0.425, 0.55, 0.675, 0.8]
         if state:
             screen_buffer = np.moveaxis(state.screen_buffer, 0, -1)
             screen_buffer = screen_buffer[:, 20:20 + 120]
@@ -63,18 +70,20 @@ class ViZDoomEnv(gym.Env):
             screen_buffer /= 255.
 
             # Depth
-            bins = [0, 0.05, 0.175, 0.3, 0.425, 0.55, 0.675, 0.8, 1]
             depth_buffer = state.depth_buffer
             depth_buffer = depth_buffer[60:80, :]
             depth_buffer = cv2.resize(depth_buffer, (4, 16))
+            depth_buffer = depth_buffer.reshape(-1)
             depth_buffer = depth_buffer.astype(np.float32)
             depth_buffer /= 255.
             depth_buffer = np.power(1. - depth_buffer, 10)
-            depth_buffer = np.digitize(depth_buffer, bins)
-            depth_buffer = np.eye(len(bins) + 1)[depth_buffer]
+            depth_buffer = np.digitize(depth_buffer, depth_bins)
+            depth_buffer = np.eye(len(depth_bins) + 1)[depth_buffer]
+            depth_buffer = depth_buffer.reshape(-1)
+            depth_buffer = depth_buffer.astype(np.float32)
         else:
             screen_buffer = np.zeros((3, 84, 84))
-            depth_buffer = np.zeros((1, 4, 16))
+            depth_buffer = np.zeros(64 * (len(depth_bins) + 1))
 
         # Reward
         last_reward = np.array([self.game.get_last_reward()], dtype=np.float32)
@@ -135,7 +144,7 @@ def create_vizdoom_env(config, scenario):
 
 
 def state_to_torch(state):
-    return (torch.from_numpy(t).unsqueeze(0) for t in state)
+    return tuple(torch.from_numpy(t).unsqueeze(0) for t in state)
 
 
 def drawmap(wad, name, height):
@@ -189,7 +198,7 @@ def drawmap(wad, name, height):
 
 def trajectory_to_video(wad, name, height, history, goal):
     empty_map, xmin, ymin, scale = drawmap(wad, name, height)
-    cv2.circle(empty_map, (int(goal[0] * scale) - xmin + 4, int(goal[1] * scale) - ymin + 4), 4, (82, 82, 255), -1)
+    cv2.circle(empty_map, (int(goal[0] * scale) - xmin + 4, int(- goal[1] * scale) - ymin + 4), 4, (255, 0, 0), -1)
 
     frames = []
     last_img = empty_map
@@ -197,7 +206,7 @@ def trajectory_to_video(wad, name, height, history, goal):
         x, y, z, rot = pose
 
         frame = last_img.copy()
-        cv2.circle(frame, (int(x * scale) - xmin + 4, int(y * scale) - ymin + 4), 4, (63, 121, 255), -1)
+        cv2.circle(frame, (int(x * scale) - xmin + 4, int(- y * scale) - ymin + 4), 4, (0, 0, 255), -1)
         frames.append(frame)
         last_img = frame
 

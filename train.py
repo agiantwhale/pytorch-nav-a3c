@@ -34,13 +34,17 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
         log_probs = []
         rewards = []
         entropies = []
+        real_depths = []
+        conv_depths = []
+        lstm_depths = []
 
         hidden = ((torch.zeros(1, 64, requires_grad=True), torch.zeros(1, 64, requires_grad=True)),
                   (torch.zeros(1, 256, requires_grad=True), torch.zeros(1, 256, requires_grad=True)))
 
         for step in range(args.num_steps):
             episode_length += 1
-            value, logit, depth_f, depth_h, hidden = model((state_to_torch(state), hidden))
+            torch_state = state_to_torch(state)
+            value, logit, depth_f, depth_h, hidden = model((torch_state, hidden))
             prob = F.softmax(logit)
             log_prob = F.log_softmax(logit)
             entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -49,8 +53,11 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
             action = prob.multinomial(1)
             log_prob = log_prob.gather(1, action)
 
+            real_depths.append(torch_state[1])
+            conv_depths.append(depth_f)
+            lstm_depths.append(depth_h)
+
             state, reward, done, _ = env.step(action.numpy())
-            # done = done or episode_length >= args.max_episode_length
 
             if done:
                 episode_length = 0
@@ -71,6 +78,11 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
         values.append(R)
         policy_loss = 0
         value_loss = 0
+        conv_depth_loss = sum(F.binary_cross_entropy_with_logits(d, r)
+                              for d, r in zip(conv_depths, real_depths))
+        lstm_depth_loss = sum(F.binary_cross_entropy_with_logits(d, r)
+                              for d, r in zip(lstm_depths, real_depths))
+
         gae = torch.zeros(1, 1)
         for i in reversed(range(len(rewards))):
             R = args.gamma * R + rewards[i]
@@ -83,7 +95,13 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
             policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 
         optimizer.zero_grad()
-        (policy_loss + args.value_loss_coef * value_loss).backward()
+
+        final_loss = policy_loss
+        final_loss += args.value_loss_coef * value_loss
+        final_loss += args.conv_depth_loss_coef * conv_depth_loss
+        final_loss += args.lstm_depth_loss_coef * lstm_depth_loss
+        final_loss.backward()
+
         grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), args.max_grad_norm)
         ensure_shared_grads(model, shared_model)
         optimizer.step()
