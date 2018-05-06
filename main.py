@@ -64,12 +64,13 @@ parser.add_argument('--video-path', help='file path to save video')
 args = parser.parse_args()
 
 
-def build_logger(build_state, checkpoint=None):
+def build_logger(build_state, checkpoint={}):
     vis = Visdom()
     env = 'NavA3C'
     wins = mp.Manager().dict()
+    offset = checkpoint.setdefault('offset', -1) + 1
 
-    if checkpoint and 'plots' in checkpoint:
+    if 'plots' in checkpoint:
         wins = dict((name, id)
                     for name, id in checkpoint['plots'].items()
                     if vis.win_exists(id, env))
@@ -79,6 +80,7 @@ def build_logger(build_state, checkpoint=None):
             return
         state = build_state()
         state['plots'] = dict(wins)
+        state['offset'] = offset
         torch.save(state, args.checkpoint_path)
 
     def _log_grad_norm(grad_norm, step):
@@ -108,6 +110,8 @@ def build_logger(build_state, checkpoint=None):
         vis.save([env])
 
     def _log_video(video, step):
+        step += offset
+
         if step % args.log_interval != 0 or not vis.check_connection():
             return
         if args.video_path is None:
@@ -160,7 +164,7 @@ if __name__ == '__main__':
         shared_model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
     else:
-        checkpoint = None
+        checkpoint = {}
 
     processes = []
 
