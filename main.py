@@ -32,9 +32,9 @@ parser.add_argument('--entropy-coef', type=float, default=0.01,
 parser.add_argument('--value-loss-coef', type=float, default=0.5,
                     help='value loss coefficient (default: 0.5)')
 parser.add_argument('--conv-depth-loss-coef', type=float, default=10,
-                    help='value loss coefficient (default: 0.5)')
+                    help='value loss coefficient (default: 10)')
 parser.add_argument('--lstm-depth-loss-coef', type=float, default=10,
-                    help='value loss coefficient (default: 0.5)')
+                    help='value loss coefficient (default: 10)')
 parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
