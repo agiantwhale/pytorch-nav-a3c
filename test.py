@@ -48,7 +48,7 @@ def test(rank, args, shared_model, counter, loggers=None):
         action = prob.max(1, keepdim=True)[1].data.numpy()
 
         if not done:
-            obs_history.append(env.screen())
+            obs_history.append((np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8))
             pose_history.append(env.pose())
 
         state, reward, done, _ = env.step(action[0, 0])
