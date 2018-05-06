@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn.functional as F
 
@@ -28,6 +29,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
     episode_length = 0
     while True:
         # Sync with the shared model
+        episode_start_time = time.time()
         model.load_state_dict(shared_model.state_dict())
 
         values = []
@@ -111,5 +113,6 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
 
         if loggers is not None:
             loggers['checkpoint'](counter.value)
-            loggers['grad_norm'](grad_norm, counter.value)
+            loggers['grad_norm'](grad_norm.numpy(), counter.value)
             loggers['train_reward'](sum(rewards), counter.value)
+            loggers['train_time'](time.time() - episode_start_time, counter.value)

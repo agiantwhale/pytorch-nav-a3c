@@ -38,6 +38,7 @@ def test(rank, args, shared_model, counter, loggers=None):
     goal_loc = env.goal()
 
     while True:
+        episode_start_time = time.time()
         episode_length += 1
         # Sync with the shared model
         if done:
@@ -69,6 +70,7 @@ def test(rank, args, shared_model, counter, loggers=None):
                 video = [np.append(obs, trj, axis=1)
                          for obs, trj in zip(obs_history, traj_video)]
                 loggers['video'](video, episode_counter)
+                loggers['test_time'](time.time() - episode_start_time, episode_counter)
 
             print("Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".format(
                 time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)),
@@ -86,4 +88,3 @@ def test(rank, args, shared_model, counter, loggers=None):
             time.sleep(60)
 
             episode_counter += 1
-

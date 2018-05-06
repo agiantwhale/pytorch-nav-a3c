@@ -83,14 +83,17 @@ def build_logger(build_state, checkpoint={}):
         state['offset'] = offset
         torch.save(state, args.checkpoint_path)
 
-    def _log_grad_norm(grad_norm, step):
+    def _log_scatter(value, step, win_name, title, test=False):
+        if test:
+            step += offset
+
         if step % args.log_interval != 0 or not vis.check_connection():
             return
-        norm = grad_norm.numpy()
-        win_id = wins.setdefault('grad_norm')
+        norm = value
+        win_id = wins.setdefault(win_name)
         if win_id is None:
-            wins['grad_norm'] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
-                                            opts=dict(title='gradient norm'))
+            wins[win_name] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
+                                         opts=dict(title=title))
         else:
             vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env, update='append')
         vis.save([env])
@@ -131,9 +134,12 @@ def build_logger(build_state, checkpoint={}):
 
         vis.save([env])
 
-    return dict(video=_log_video, grad_norm=_log_grad_norm,
+    return dict(video=_log_video,
+                grad_norm=lambda n, s: _log_scatter(n, s, 'grad_norm', 'gradient norm'),
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
                 test_reward=lambda r, s: _log_reward(r, s, 'test'),
+                train_time=lambda n, s: _log_scatter(n, s, 'train_time', 'training wall time (per episode)'),
+                test_time=lambda n, s: _log_scatter(n, s, 'test_time', 'evaluation wall time (per episode)', True),
                 checkpoint=_save_checkpoint)
 
 
