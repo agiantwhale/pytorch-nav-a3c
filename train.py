@@ -59,7 +59,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers=None):
             conv_depths.append(depth_f)
             lstm_depths.append(depth_h)
 
-            state, reward, done, _ = env.step(action.numpy())
+            state, reward, done, _ = env.step(action.numpy(), steps=4)
 
             if done:
                 episode_length = 0

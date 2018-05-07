@@ -21,24 +21,24 @@ from optim import SharedAdam
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
-parser.add_argument('--lr', type=float, default=0.0001,
-                    help='learning rate (default: 0.0001)')
+parser.add_argument('--lr', type=float, default=0.0001 * 2.5,
+                    help='learning rate (default: 0.00025)')
 parser.add_argument('--gamma', type=float, default=0.99,
                     help='discount factor for rewards (default: 0.99)')
 parser.add_argument('--tau', type=float, default=1.00,
                     help='parameter for GAE (default: 1.00)')
-parser.add_argument('--entropy-coef', type=float, default=0.01,
-                    help='entropy term coefficient (default: 0.01)')
+parser.add_argument('--entropy-coef', type=float, default=0.0005,
+                    help='entropy term coefficient (default: 0.0005)')
 parser.add_argument('--value-loss-coef', type=float, default=0.5,
                     help='value loss coefficient (default: 0.5)')
 parser.add_argument('--conv-depth-loss-coef', type=float, default=10,
-                    help='value loss coefficient (default: 10)')
+                    help='conv depth loss coefficient (default: 10)')
 parser.add_argument('--lstm-depth-loss-coef', type=float, default=10,
-                    help='value loss coefficient (default: 10)')
+                    help='lstm depth loss coefficient (default: 10)')
 parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
-parser.add_argument('--seed', type=int, default=1,
-                    help='random seed (default: 1)')
+parser.add_argument('--seed', type=int, default=666,
+                    help='random seed (default: 666)')
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 4)')
 parser.add_argument('--num-torch-threads', type=int,

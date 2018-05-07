@@ -105,8 +105,8 @@ class ViZDoomEnv(gym.Env):
             self.game.set_seed(seed)
         return [seed]
 
-    def step(self, action):
-        reward = self.game.make_action(self.action_map[np.asscalar(action)])
+    def step(self, action, steps=1):
+        reward = self.game.make_action(self.action_map[np.asscalar(action)], steps)
         done = self.game.is_episode_finished()
         state = self._state()
         self.episode_reward += reward

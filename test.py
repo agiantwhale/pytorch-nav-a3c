@@ -48,14 +48,15 @@ def test(rank, args, shared_model, counter, loggers=None):
         prob = F.softmax(logit)
         action = prob.max(1, keepdim=True)[1].data.numpy()
 
-        if not done:
-            obs_history.append((np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8))
-            pose_history.append(env.pose())
+        for i in range(4):
+            state, reward, done, _ = env.step(action[0, 0], steps=1)
+            reward_sum += reward
 
-        state, reward, done, _ = env.step(action[0, 0])
-
-        # done = done or episode_length >= args.max_episode_length
-        reward_sum += reward
+            if done:
+                break
+            else:
+                obs_history.append((np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8))
+                pose_history.append(env.pose())
 
         # a quick hack to prevent the agent from stucking
         # actions.append(action[0, 0])
