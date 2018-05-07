@@ -78,6 +78,13 @@ def build_logger(build_state, checkpoint={}):
     def _save_checkpoint(step):
         if step % args.save_interval != 0 or args.checkpoint_path is None:
             return
+
+        checkpoint_path = os.path.abspath(args.checkpoint_path)
+        checkpoint_dir = os.path.dirname(checkpoint_path)
+
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+
         state = build_state()
         state['plots'] = dict(wins)
         state['offset'] = offset
@@ -121,6 +128,11 @@ def build_logger(build_state, checkpoint={}):
             return
 
         video_path = os.path.abspath(args.video_path)
+        video_dir = os.path.dirname(video_path)
+
+        if not os.path.exists(video_dir):
+            os.makedirs(video_dir)
+
         skvideo.io.vwrite(video_path, np.array(video))
 
         win_name = 'last_test_episode'

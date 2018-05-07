@@ -21,10 +21,6 @@ def main(args):
 
     if os.path.isfile(checkpoint_dir) or os.path.isfile(video_dir):
         print('remove {} / {}'.format(checkpoint_dir, video_dir))
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
-    if not os.path.exists(video_dir):
-        os.makedirs(video_dir)
 
     hyperparams = dict(lr=np.random.uniform(np.power(10., -4), 5 * np.power(10., -4)),
                        entropy_coef=np.random.uniform(np.power(10., -4), np.power(10., -3)),
