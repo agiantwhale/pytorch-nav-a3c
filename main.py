@@ -120,7 +120,7 @@ def build_logger(build_state, checkpoint={}):
     def _log_video(video, step):
         step += offset
 
-        if step % args.log_interval != 0 or not vis.check_connection():
+        if step % args.log_interval != 0:
             return
         if args.video_path is None:
             return
@@ -132,6 +132,9 @@ def build_logger(build_state, checkpoint={}):
             os.makedirs(video_dir)
 
         skvideo.io.vwrite(video_path, np.array(video))
+
+        if not vis.check_connection():
+            return
 
         win_name = 'last_test_episode'
         win_id = wins.setdefault(win_name)
