@@ -198,7 +198,7 @@ if __name__ == '__main__':
                                         optimizer=optimizer.state_dict()),
                            checkpoint,
                            args.run,
-                           args.port)
+                           args.visdom_port)
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging, kill))
     p.start()
