@@ -43,23 +43,23 @@ def main(args):
     #PBS -N {}
     #PBS -j oe
     #PBS -l walltime=60:00:00
-    #PBS -l nodes=1:ppn=18
+    #PBS -l nodes=1:ppn=20
     #PBS -S /bin/bash
     #PBS -m abe
     #PBS -M {}
     #PBS -V
     """.format(args.config_name, args.email))
 
-    os.makedirs(visdom_dir, exist_ok=True)
-
     visdom = dedent("""\
+    mkdir -p {path}
+    
     if lsof -Pi :6666 -sTCP:LISTEN -t >/dev/null ; then
         echo "visdom running"
     else
         echo "visdom not running, launching"
-        python -m visdom.server -env_path={} -port=6666 &
+        python -m visdom.server -env_path={path} -port=6666 &
     fi
-    """.format(visdom_dir))
+    """.format(path=visdom_dir))
 
     for l in (headers + visdom).splitlines():
         r = l.rstrip()
