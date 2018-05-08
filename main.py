@@ -158,6 +158,7 @@ if __name__ == '__main__':
     os.environ['MKL_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
+    kill = mp.Event()
     counter = mp.Value('i', 0)
     lock = mp.Lock()
 
@@ -188,14 +189,17 @@ if __name__ == '__main__':
                                         optimizer=optimizer.state_dict()),
                            checkpoint)
 
-    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging))
+    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging, kill))
     p.start()
     processes.append(p)
 
     for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer, logging))
+        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer, logging, kill))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
+
+    if kill.is_set():
+        raise Exception('bad exit')
