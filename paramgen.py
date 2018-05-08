@@ -16,12 +16,10 @@ def main(args):
     file_path = os.path.dirname(os.path.realpath(__file__))
     root_base = os.path.abspath(args.root_path)
 
-    if not os.path.isdir(root_base):
-        print('root path is not a directory')
-
     checkpoint_dir = os.path.join(root_base, 'checkpoint')
     video_dir = os.path.join(root_base, 'media')
     visdom_dir = os.path.join(root_base, 'visdom')
+    os.makedirs(visdom_dir, exist_ok=True)
 
     if os.path.isfile(checkpoint_dir) or os.path.isfile(video_dir):
         print('remove {} / {}'.format(checkpoint_dir, video_dir))
