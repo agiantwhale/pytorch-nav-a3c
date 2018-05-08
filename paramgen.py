@@ -57,9 +57,9 @@ def main(args):
         echo "visdom running"
     else
         echo "visdom not running, launching"
-        python -m visdom.server -port=6666 &
+        python -m visdom.server -env_path={} -port=6666 &
     fi
-    """)
+    """.format(visdom_dir))
 
     for l in (headers + visdom).splitlines():
         r = l.rstrip()
