@@ -34,7 +34,7 @@ def main(args):
                        conv_depth_loss_coef=np.random.choice([1 / 3.0, 10, 33]),
                        lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
                        save_interval=1000,
-                       log_interval=10,
+                       log_interval=100,
                        num_processes=16,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4')
@@ -53,7 +53,7 @@ def main(args):
     visdom = dedent("""\
     mkdir -p {path}
     
-    kill -9 -f "-m visdom.server -env_path={path} -port=6666"
+    pkill -f "python -m visdom.server -env_path={path} -port=6666"
     python -m visdom.server -env_path={path} -port=6666 &
     """.format(path=visdom_dir))
 
