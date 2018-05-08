@@ -34,7 +34,6 @@ def main(args):
                        save_interval=1000,
                        log_interval=10,
                        num_processes=16,
-                       num_torch_threads=16,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4')
 
@@ -42,7 +41,7 @@ def main(args):
     #PBS -N {}
     #PBS -j oe
     #PBS -l walltime=60:00:00
-    #PBS -l nodes=1:ppn=20
+    #PBS -l nodes=1:ppn=18
     #PBS -S /bin/bash
     #PBS -m abe
     #PBS -M {}

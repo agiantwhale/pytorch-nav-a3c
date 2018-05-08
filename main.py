@@ -41,8 +41,6 @@ parser.add_argument('--seed', type=int, default=666,
                     help='random seed (default: 666)')
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 4)')
-parser.add_argument('--num-torch-threads', type=int,
-                    help='Number of torch threads')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--log-interval', type=int, default=20,
@@ -157,14 +155,13 @@ def build_logger(build_state, checkpoint={}):
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
     counter = mp.Value('i', 0)
     lock = mp.Lock()
 
-    if args.num_torch_threads:
-        torch.set_num_threads(args.num_torch_threads)
-
+    torch.set_num_threads(1)
     torch.manual_seed(args.seed)
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     shared_model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
