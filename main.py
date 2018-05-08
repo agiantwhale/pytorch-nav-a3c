@@ -60,11 +60,12 @@ parser.add_argument('--save-interval', type=int, default=20,
                     help='save model every n episodes (default: 20)')
 parser.add_argument('--checkpoint-path', help='file path to save models')
 parser.add_argument('--video-path', help='file path to save video')
+parser.add_argument('--visdom-port', type=int, default=8097, help='visdom port')
 args = parser.parse_args()
 
 
-def build_logger(build_state, checkpoint={}, run='NavA3C'):
-    vis = Visdom(port=6666)
+def build_logger(build_state, checkpoint={}, run='NavA3C', port=8097):
+    vis = Visdom(port=port)
     env = run
     wins = mp.Manager().dict()
     offset = checkpoint.setdefault('offset', -1) + 1
@@ -95,7 +96,11 @@ def build_logger(build_state, checkpoint={}, run='NavA3C'):
 
         if step % args.log_interval != 0 or not vis.check_connection():
             return
-        norm = value
+
+        if isinstance(value, torch.Tensor):
+            norm = value.numpy()
+        else:
+            norm = value
         win_id = wins.setdefault(win_name)
         if win_id is None:
             wins[win_name] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
@@ -192,7 +197,8 @@ if __name__ == '__main__':
                                         model=shared_model.state_dict(),
                                         optimizer=optimizer.state_dict()),
                            checkpoint,
-                           args.run)
+                           args.run,
+                           args.port)
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging, kill))
     p.start()

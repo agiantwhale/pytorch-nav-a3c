@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('root_path')
 parser.add_argument('config_name')
 parser.add_argument('email')
+parser.add_argument('--port', type=int, default=8097)
 
 
 def main(args):
@@ -37,7 +38,8 @@ def main(args):
                        log_interval=100,
                        num_processes=16,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
-                       video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4')
+                       video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
+                       visdom_port=args.port)
 
     headers = dedent("""\
     #PBS -N {}
@@ -53,9 +55,9 @@ def main(args):
     visdom = dedent("""\
     mkdir -p {path}
     
-    pkill -f "python -m visdom.server -env_path={path} -port=6666"
-    python -m visdom.server -env_path={path} -port=6666 &
-    """.format(path=visdom_dir))
+    pkill -f "python -m visdom.server -env_path={path} -port={port}"
+    python -m visdom.server -env_path={path} -port={port} &
+    """.format(path=visdom_dir, port=args.port))
 
     for l in (headers + visdom).splitlines():
         r = l.rstrip()

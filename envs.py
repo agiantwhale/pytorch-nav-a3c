@@ -199,9 +199,9 @@ def trajectory_to_video(wad, name, height, history, goal):
     empty_map, xmin, ymin, scale = drawmap(wad, name, height)
     cv2.circle(empty_map, (int(goal[0] * scale) - xmin, int(- goal[1] * scale) - ymin), 2, (255, 0, 0), -1)
 
-    frames = []
+    frames = np.zeros([len(history)] + list(empty_map.shape), dtype=np.uint8)
     last_img = empty_map
-    for pose in history:
+    for idx, pose in enumerate(history):
         x, y, z, rot = pose
         rot = - np.deg2rad(rot)
 
@@ -214,6 +214,6 @@ def trajectory_to_video(wad, name, height, history, goal):
 
         dir_frame = frame.copy()
         cv2.line(dir_frame, point, shift, (0, 0, 255), 2)
-        frames.append(dir_frame)
+        frames[idx, :, :, :] = dir_frame
 
     return frames

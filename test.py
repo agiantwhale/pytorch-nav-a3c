@@ -10,6 +10,14 @@ from envs import create_vizdoom_env, state_to_torch, trajectory_to_video
 from model import ActorCritic
 
 
+def video(wad, map, goal_loc, obs_history, pose_history):
+    traj_video = trajectory_to_video(wad, map, obs_history[0].shape[0],
+                                     pose_history, goal_loc)
+    obs_history = np.array(obs_history)
+    video = np.append(obs_history, traj_video, axis=2)
+    return video
+
+
 def test(rank, args, shared_model, counter, loggers, kill):
     torch.manual_seed(args.seed + rank)
 
@@ -67,11 +75,8 @@ def test(rank, args, shared_model, counter, loggers, kill):
             if done:
                 if loggers:
                     loggers['test_reward'](env.game.get_total_reward(), episode_counter)
-                    traj_video = trajectory_to_video(env.wad, env.current_map, obs_history[0].shape[0],
-                                                     pose_history, goal_loc)
-                    video = [np.append(obs, trj, axis=1)
-                             for obs, trj in zip(obs_history, traj_video)]
-                    loggers['video'](video, episode_counter)
+                    loggers['video'](video(env.wad, env.current_map, goal_loc, obs_history, pose_history),
+                                     episode_counter)
                     loggers['test_time'](time.time() - episode_start_time, episode_counter)
 
                 print("Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".format(
@@ -90,5 +95,6 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 time.sleep(60)
 
                 episode_counter += 1
-        except:
+        except Exception as err:
+            print(err)
             kill.set()
