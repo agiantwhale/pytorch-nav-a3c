@@ -11,6 +11,7 @@ parser.add_argument('email')
 
 
 def main(args):
+    file_path = os.path.dirname(os.path.realpath(__file__))
     root_base = os.path.abspath(args.root_path)
 
     if not os.path.isdir(root_base):
@@ -24,6 +25,9 @@ def main(args):
 
     hyperparams = dict(lr=np.random.uniform(np.power(10., -4), 5 * np.power(10., -4)),
                        entropy_coef=np.random.uniform(np.power(10., -4), np.power(10., -3)),
+                       config_path='{}/doomfiles/default.cfg'.format(file_path),
+                       train_scenario_path='{}/doomfiles/11.wad'.format(file_path),
+                       test_scenario_path='{}/doomfiles/11.wad'.format(file_path),
                        num_steps=50,
                        conv_depth_loss_coef=np.random.choice([1 / 3.0, 10, 33]),
                        lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
@@ -52,7 +56,7 @@ def main(args):
             print(r)
 
     print()
-    print("python {}/main.py \\".format(os.path.dirname(os.path.realpath(__file__))))
+    print("python {}/main.py \\".format(file_path))
     for idx, (flag, value) in enumerate(hyperparams.items()):
         print(" " * 10 + "{:<50} {}".format('--{}={}'.format(flag.replace("_", "-"), value),
                                             '\\' if idx + 1 < len(hyperparams) else str()))
