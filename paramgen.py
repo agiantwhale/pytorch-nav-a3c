@@ -53,12 +53,8 @@ def main(args):
     visdom = dedent("""\
     mkdir -p {path}
     
-    if lsof -Pi :6666 -sTCP:LISTEN -t >/dev/null ; then
-        echo "visdom running"
-    else
-        echo "visdom not running, launching"
-        python -m visdom.server -env_path={path} -port=6666 &
-    fi
+    kill -9 -f "-m visdom.server -env_path={path} -port=6666"
+    python -m visdom.server -env_path={path} -port=6666 &
     """.format(path=visdom_dir))
 
     for l in (headers + visdom).splitlines():
