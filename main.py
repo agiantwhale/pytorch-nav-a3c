@@ -21,6 +21,7 @@ from optim import SharedAdam
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
+parser.add_argument('run')
 parser.add_argument('--lr', type=float, default=0.0001 * 2.5,
                     help='learning rate (default: 0.00025)')
 parser.add_argument('--gamma', type=float, default=0.99,
@@ -62,9 +63,9 @@ parser.add_argument('--video-path', help='file path to save video')
 args = parser.parse_args()
 
 
-def build_logger(build_state, checkpoint={}):
-    vis = Visdom()
-    env = 'NavA3C'
+def build_logger(build_state, checkpoint={}, run='NavA3C'):
+    vis = Visdom(port=6666)
+    env = run
     wins = mp.Manager().dict()
     offset = checkpoint.setdefault('offset', -1) + 1
 
@@ -190,7 +191,8 @@ if __name__ == '__main__':
     logging = build_logger(lambda: dict(episodes=counter.value,
                                         model=shared_model.state_dict(),
                                         optimizer=optimizer.state_dict()),
-                           checkpoint)
+                           checkpoint,
+                           args.run)
 
     p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging, kill))
     p.start()

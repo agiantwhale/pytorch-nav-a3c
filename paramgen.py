@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import os
 import numpy as np
+from textwrap import dedent
 
 parser = argparse.ArgumentParser()
 parser.add_argument('root_path')
@@ -19,6 +20,7 @@ def main(args):
 
     checkpoint_dir = os.path.join(root_base, 'checkpoint')
     video_dir = os.path.join(root_base, 'media')
+    visdom_dir = os.path.join(root_base, 'visdom')
 
     if os.path.isfile(checkpoint_dir) or os.path.isfile(video_dir):
         print('remove {} / {}'.format(checkpoint_dir, video_dir))
@@ -37,7 +39,7 @@ def main(args):
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4')
 
-    headers = """
+    headers = dedent("""\
     #PBS -N {}
     #PBS -j oe
     #PBS -l walltime=60:00:00
@@ -46,16 +48,25 @@ def main(args):
     #PBS -m abe
     #PBS -M {}
     #PBS -V
-    """.format(args.config_name, args.email)
+    """.format(args.config_name, args.email))
 
-    for l in headers.splitlines():
-        r = l.strip()
+    os.makedirs(visdom_dir, exist_ok=True)
+
+    visdom = dedent("""\
+    if lsof -Pi :6666 -sTCP:LISTEN -t >/dev/null ; then
+        echo "visdom running"
+    else
+        echo "visdom not running, launching"
+        python -m visdom.server -port=6666 &
+    fi
+    """)
+
+    for l in (headers + visdom).splitlines():
+        r = l.rstrip()
 
         if r:
             print(r)
-
-    print()
-    print("python {}/main.py \\".format(file_path))
+    print("python {}/main.py {} \\".format(file_path, args.config_name))
     for idx, (flag, value) in enumerate(hyperparams.items()):
         print(" " * 10 + "{:<50} {}".format('--{}={}'.format(flag.replace("_", "-"), value),
                                             '\\' if idx + 1 < len(hyperparams) else str()))
