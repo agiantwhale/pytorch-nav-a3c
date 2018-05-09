@@ -15,6 +15,8 @@ def ensure_shared_grads(model, shared_model):
 
 
 def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
+    counter, steps = counter
+
     torch.manual_seed(args.seed + rank)
 
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
@@ -27,7 +29,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
     state = env.reset()
     done = True
     episode_length = 0
-    while not kill.is_set():
+    while not kill.is_set() and steps.value <= args.max_episode_steps:
         try:
             # Sync with the shared model
             episode_start_time = time.time()
@@ -63,7 +65,6 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
                 state, reward, done, _ = env.step(action.numpy(), steps=4)
 
                 if done:
-                    episode_length = 0
                     state = env.reset()
 
                 values.append(value)
@@ -110,7 +111,9 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             optimizer.step()
 
             with lock:
+                steps.value += episode_length * 4
                 counter.value += 1
+                episode_length = 0
 
             if loggers is not None:
                 loggers['checkpoint'](counter.value)

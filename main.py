@@ -42,12 +42,12 @@ parser.add_argument('--seed', type=int, default=666,
                     help='random seed (default: 666)')
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 4)')
-parser.add_argument('--num-steps', type=int, default=20,
-                    help='number of forward steps in A3C (default: 20)')
+parser.add_argument('--num-steps', type=int, default=50,
+                    help='number of forward steps in A3C (default: 50)')
 parser.add_argument('--log-interval', type=int, default=20,
                     help='logging interval (default: 20)')
-parser.add_argument('--max-episode-length', type=int, default=1000000,
-                    help='maximum length of an episode (default: 1000000)')
+parser.add_argument('--max-episode-steps', type=int, default=10 ** 8,
+                    help='maximum steps of a training run (default: 100000000)')
 parser.add_argument('--config-path', default='./doomfiles/default.cfg',
                     help='ViZDoom configuration path (default: ./doomfiles/default.cfg)')
 parser.add_argument('--train-scenario-path', default='./doomfiles/11.wad',
@@ -58,6 +58,8 @@ parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('--save-interval', type=int, default=20,
                     help='save model every n episodes (default: 20)')
+parser.add_argument('--eval-interval', type=int, default=60,
+                    help='run evaluation every n seconds (default: 60)')
 parser.add_argument('--checkpoint-path', help='file path to save models')
 parser.add_argument('--video-path', help='file path to save video')
 parser.add_argument('--visdom-port', type=int, default=8097, help='visdom port')
@@ -110,8 +112,12 @@ def build_logger(build_state, checkpoint={}, run='NavA3C', port=8097):
         vis.save([env])
 
     def _log_reward(total_reward, step, mode):
-        if step % args.log_interval != 0 or not vis.check_connection():
+        if mode == 'train' and step % args.log_interval != 0:
             return
+
+        if not vis.check_connection():
+            return
+
         win_name = 'total_reward_{}'.format(mode)
         win_id = wins.setdefault(win_name)
         if win_id is None:
@@ -126,8 +132,6 @@ def build_logger(build_state, checkpoint={}, run='NavA3C', port=8097):
     def _log_video(video, step):
         step += offset
 
-        if step % args.log_interval != 0:
-            return
         if args.video_path is None:
             return
 
@@ -169,6 +173,7 @@ if __name__ == '__main__':
 
     kill = mp.Event()
     counter = mp.Value('i', 0)
+    steps = mp.Value('i', 0)
     lock = mp.Lock()
 
     torch.set_num_threads(1)
@@ -200,12 +205,12 @@ if __name__ == '__main__':
                            args.run,
                            args.visdom_port)
 
-    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter, logging, kill))
+    p = mp.Process(target=test, args=(args.num_processes, args, shared_model, (counter, steps), logging, kill))
     p.start()
     processes.append(p)
 
     for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer, logging, kill))
+        p = mp.Process(target=train, args=(rank, args, shared_model, (counter, steps), lock, optimizer, logging, kill))
         p.start()
         processes.append(p)
 

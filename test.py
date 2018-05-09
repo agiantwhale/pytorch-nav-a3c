@@ -18,6 +18,8 @@ def video(wad, map, goal_loc, obs_history, pose_history):
 
 
 def test(rank, args, shared_model, counter, loggers, kill):
+    counter, steps = counter
+
     torch.manual_seed(args.seed + rank)
 
     env = create_vizdoom_env(args.config_path, args.test_scenario_path)
@@ -45,7 +47,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
     pose_history = []
     goal_loc = env.goal()
 
-    while not kill.is_set():
+    while not kill.is_set() and steps.value <= args.max_episode_steps:
         try:
             episode_start_time = time.time()
             episode_length += 1
@@ -105,7 +107,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)),
                           (torch.zeros(1, 256), torch.zeros(1, 256)))
 
-                time.sleep(60)
+                time.sleep(args.eval_interval)
 
                 episode_counter += 1
         except Exception as err:
