@@ -10,6 +10,7 @@ parser.add_argument('root_path')
 parser.add_argument('config_name')
 parser.add_argument('email')
 parser.add_argument('--port', type=int, default=8097)
+parser.add_argument('--workers', type=int, default=16)
 
 
 def main(args):
@@ -34,7 +35,7 @@ def main(args):
                        lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
                        save_interval=1000,
                        log_interval=100,
-                       num_processes=16,
+                       num_processes=args.workers,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
                        visdom_port=args.port)
@@ -43,12 +44,12 @@ def main(args):
     #PBS -N {}
     #PBS -j oe
     #PBS -l walltime=60:00:00
-    #PBS -l nodes=1:ppn=20
+    #PBS -l nodes=1:ppn={}
     #PBS -S /bin/bash
     #PBS -m abe
     #PBS -M {}
     #PBS -V
-    """.format(args.config_name, args.email))
+    """.format(args.config_name, args.workers + 2, args.email))
 
     visdom = dedent("""\
     mkdir -p {path}
