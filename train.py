@@ -41,8 +41,8 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             conv_depths = []
             lstm_depths = []
 
-            hidden = ((torch.zeros(1, 64, requires_grad=True), torch.zeros(1, 64, requires_grad=True)),
-                      (torch.zeros(1, 256, requires_grad=True), torch.zeros(1, 256, requires_grad=True)))
+            hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)),
+                      (torch.zeros(1, 256), torch.zeros(1, 256)))
 
             for step in range(args.num_steps):
                 episode_length += 1
@@ -53,7 +53,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
                 entropies.append(entropy)
 
-                action = prob.multinomial(1)
+                action = prob.multinomial(1).data
                 log_prob = log_prob.gather(1, action)
 
                 real_depths.append(torch_state[1])
@@ -76,7 +76,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             R = torch.zeros(1, 1)
             if not done:
                 value, _, _, _, _ = model((state_to_torch(state), hidden))
-                R = value
+                R = value.data
 
             values.append(R)
             policy_loss = 0
@@ -93,7 +93,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
                 value_loss = value_loss + 0.5 * advantage.pow(2)
 
                 # Generalized Advantage Estimataion
-                delta_t = rewards[i] + args.gamma * values[i + 1] - values[i]
+                delta_t = rewards[i] + args.gamma * values[i + 1].data - values[i].data
                 gae = gae * args.gamma * args.tau + delta_t
                 policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 

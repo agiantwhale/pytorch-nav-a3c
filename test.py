@@ -69,7 +69,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
                     if isinstance(obs_history, list):
                         obs_history.append(obs_frame)
                     else:
-                        obs_history[obs_index] = obs_frame
+                        obs_history[obs_index, :, :, :] = obs_frame
                         obs_index += 1
 
                     pose_history.append(env.pose())
@@ -101,6 +101,9 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 obs_index = 0
                 pose_history = []
                 goal_loc = env.goal()
+
+                hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)),
+                          (torch.zeros(1, 256), torch.zeros(1, 256)))
 
                 time.sleep(60)
 
