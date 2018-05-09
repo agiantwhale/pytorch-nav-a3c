@@ -195,11 +195,18 @@ def drawmap(wad, name, height):
     return np.array(im), xmin, ymin, scale
 
 
+frames = None
+
+
 def trajectory_to_video(wad, name, height, history, goal):
+    global frames
+
     empty_map, xmin, ymin, scale = drawmap(wad, name, height)
     cv2.circle(empty_map, (int(goal[0] * scale) - xmin, int(- goal[1] * scale) - ymin), 2, (255, 0, 0), -1)
 
-    frames = np.zeros([len(history)] + list(empty_map.shape), dtype=np.uint8)
+    if frames is None:
+        frames = np.zeros([len(history)] + list(empty_map.shape), dtype=np.uint8)
+
     last_img = empty_map
     for idx, pose in enumerate(history):
         x, y, z, rot = pose

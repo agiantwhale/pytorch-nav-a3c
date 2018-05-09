@@ -11,9 +11,8 @@ from model import ActorCritic
 
 
 def video(wad, map, goal_loc, obs_history, pose_history):
-    traj_video = trajectory_to_video(wad, map, obs_history[0].shape[0],
+    traj_video = trajectory_to_video(wad, map, obs_history.shape[1],
                                      pose_history, goal_loc)
-    obs_history = np.array(obs_history)
     video = np.append(obs_history, traj_video, axis=2)
     return video
 
@@ -41,6 +40,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
     episode_length = 0
     episode_counter = 0
 
+    obs_index = 0
     obs_history = []
     pose_history = []
     goal_loc = env.goal()
@@ -64,7 +64,14 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 if done:
                     break
                 else:
-                    obs_history.append((np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8))
+                    obs_frame = (np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8)
+
+                    if isinstance(obs_history, list):
+                        obs_history.append(obs_frame)
+                    else:
+                        obs_history[obs_index] = obs_frame
+                        obs_index += 1
+
                     pose_history.append(env.pose())
 
             # a quick hack to prevent the agent from stucking
@@ -73,6 +80,9 @@ def test(rank, args, shared_model, counter, loggers, kill):
             #     done = True
 
             if done:
+                if isinstance(obs_history, list):
+                    obs_history = np.array(obs_history)
+
                 if loggers:
                     loggers['test_reward'](env.game.get_total_reward(), episode_counter)
                     loggers['video'](video(env.wad, env.current_map, goal_loc, obs_history, pose_history),
@@ -88,7 +98,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 actions.clear()
                 state = env.reset()
 
-                obs_history = []
+                obs_index = 0
                 pose_history = []
                 goal_loc = env.goal()
 
