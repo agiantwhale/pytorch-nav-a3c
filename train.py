@@ -115,11 +115,13 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
                 counter.value += 1
                 episode_length = 0
 
+                cv = int(counter.value)
+
             if loggers is not None:
-                loggers['checkpoint'](counter.value)
-                loggers['grad_norm'](grad_norm, counter.value)
-                loggers['train_reward'](sum(rewards), counter.value)
-                loggers['train_time'](time.time() - episode_start_time, counter.value)
+                loggers['checkpoint'](cv)
+                loggers['grad_norm'](grad_norm, cv)
+                loggers['train_reward'](sum(rewards), cv)
+                loggers['train_time'](time.time() - episode_start_time, cv)
 
             time.sleep(0.1)
         except Exception as err:
