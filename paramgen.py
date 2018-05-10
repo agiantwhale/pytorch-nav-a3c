@@ -31,7 +31,7 @@ def main(args):
                        train_scenario_path='{}/doomfiles/11.wad'.format(file_path),
                        test_scenario_path='{}/doomfiles/11.wad'.format(file_path),
                        max_grad_norm=1000,
-                       num_steps=50,
+                       num_steps=np.random.choice([50, 75]),
                        conv_depth_loss_coef=np.random.choice([1 / 3.0, 10, 33]),
                        lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
                        save_interval=1000,
