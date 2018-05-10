@@ -92,17 +92,20 @@ def build_logger(build_state, checkpoint={}, run='NavA3C', port=8097):
         state['offset'] = offset
         torch.save(state, args.checkpoint_path)
 
-    def _log_scatter(value, step, win_name, title, test=False):
-        if test:
+    def _log_scatter(value, step, win_name, title, mode='train'):
+        if mode == 'test':
             step += offset
+        elif step % args.log_interval != 0:
+            return
 
-        if step % args.log_interval != 0 or not vis.check_connection():
+        if not vis.check_connection():
             return
 
         if isinstance(value, torch.Tensor):
             norm = value.numpy()
         else:
             norm = value
+
         win_id = wins.setdefault(win_name)
         if win_id is None:
             wins[win_name] = vis.scatter(X=np.array([[step, norm]]), win=win_id, env=env,
@@ -161,8 +164,8 @@ def build_logger(build_state, checkpoint={}, run='NavA3C', port=8097):
                 grad_norm=lambda n, s: _log_scatter(n, s, 'grad_norm', 'gradient norm'),
                 train_reward=lambda r, s: _log_reward(r, s, 'train'),
                 test_reward=lambda r, s: _log_reward(r, s, 'test'),
-                train_time=lambda n, s: _log_scatter(n, s, 'train_time', 'training wall time (per episode)'),
-                test_time=lambda n, s: _log_scatter(n, s, 'test_time', 'evaluation wall time (per episode)', True),
+                train_time=lambda n, s: _log_scatter(n, s, 'train_time', 'training wall time (per episode)', 'train'),
+                test_time=lambda n, s: _log_scatter(n, s, 'test_time', 'evaluation wall time (per episode)', 'test'),
                 checkpoint=_save_checkpoint)
 
 
