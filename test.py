@@ -47,13 +47,12 @@ def test(rank, args, shared_model, counter, loggers, kill):
     pose_history = []
     goal_loc = env.goal()
 
+    model.load_state_dict(shared_model.state_dict())
+
     while not kill.is_set() and steps.value <= args.max_episode_steps:
         try:
             episode_start_time = time.time()
             episode_length += 1
-            # Sync with the shared model
-            if done:
-                model.load_state_dict(shared_model.state_dict())
 
             value, logit, _, _, hidden = model((state_to_torch(state), hidden))
             prob = F.softmax(logit)
@@ -108,6 +107,8 @@ def test(rank, args, shared_model, counter, loggers, kill):
                           (torch.zeros(1, 256), torch.zeros(1, 256)))
 
                 time.sleep(args.eval_interval)
+
+                model.load_state_dict(shared_model.state_dict())
 
                 episode_counter += 1
         except Exception as err:
