@@ -195,7 +195,9 @@ if __name__ == '__main__':
         checkpoint = torch.load(args.checkpoint_path)
         counter.value = checkpoint['episodes']
         shared_model.load_state_dict(checkpoint['model'])
+        shared_model.share_memory()
         optimizer.load_state_dict(checkpoint['optimizer'])
+        optimizer.share_memory()
     else:
         checkpoint = {}
 
