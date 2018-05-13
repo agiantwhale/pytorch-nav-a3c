@@ -61,17 +61,29 @@ class ActorCritic(torch.nn.Module):
         self.lstm2.bias_ih.data.fill_(0)
         self.lstm2.bias_hh.data.fill_(0)
 
+        self.vin_fuser = nn.Conv1d(256 + 1, num_outputs * 2, 21, padding=10)
+        self.vin = nn.Conv1d(1, num_outputs * 2, 21, padding=10)
+
         self.train()
 
     def forward(self, inputs):
-        inputs, ((hx1, cx1), (hx2, cx2)) = inputs
+        inputs, hidden = inputs
         observation, _, reward, velocity, action = inputs
+
+        if len(hidden) == 2:
+            (hx1, cx1), (hx2, cx2) = hidden
+            topologies = None
+        else:
+            (hx1, cx1), (hx2, cx2), topologies = hidden
+
+        # Embedding
         x = F.selu(self.conv1(observation))
         x = F.selu(self.conv2(x))
         x = x.view(-1, 32 * 10 * 10)
         x = F.selu(self.fc1(x))
         f = x
 
+        # Nav-A3C
         hx1, cx1 = self.lstm1(torch.cat((x, reward), dim=1), (hx1, cx1))
         x = hx1
         hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
@@ -83,4 +95,37 @@ class ActorCritic(torch.nn.Module):
         d_h = self.fc_d1_h(hx2)
         d_h = self.fc_d2_h(d_h)
 
-        return self.critic_linear(x), self.actor_linear(x), d_f, d_h, ((hx1, cx1), (hx2, cx2))
+        val = self.critic_linear(x)
+        pol = self.actor_linear(x)
+
+        # Topologies
+        if topologies:
+            embeddings, values = topologies
+
+            r = torch.cat((torch.unsqueeze(embeddings[-1], 0), reward), dim=1)
+            r = torch.unsqueeze(r, dim=2)
+            q = self.vin_fuser(r)
+            v = torch.max(torch.squeeze(q))
+
+            if values:
+                values = torch.cat((values, v), dim=0)
+                values = torch.max(self.vin(values), q=1, keepdim=True)
+            else:
+                values = v
+
+            similarities = F.cosine_similarity(embeddings, f)
+            similarities = F.relu(similarities, inplace=True)
+
+            embeddings = torch.cat((embeddings, f), dim=0)
+
+            node = torch.argmax(similarities)
+
+            vin_sim = similarities[node]
+            vin_val = values[node]
+
+            val = val * (1 - vin_sim) + vin_val * vin_sim
+        else:
+            embeddings = f
+            values = None
+
+        return val, pol, d_f, d_h, ((hx1, cx1), (hx2, cx2), (embeddings, values))
