@@ -11,6 +11,7 @@ parser.add_argument('config_name')
 parser.add_argument('email')
 parser.add_argument('--port', type=int, default=8097)
 parser.add_argument('--workers', type=int, default=16)
+parser.add_argument('--topology', action='store_true')
 
 
 def main(args):
@@ -40,7 +41,8 @@ def main(args):
                        num_processes=args.workers,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
-                       visdom_port=args.port)
+                       visdom_port=args.port,
+                       topology=args.topology)
 
     headers = dedent("""\
     #PBS -N {}
