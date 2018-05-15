@@ -112,5 +112,5 @@ def test(rank, args, shared_model, counter, loggers, kill):
 
                 episode_counter += 1
         except Exception as err:
-            print(err)
             kill.set()
+            raise err

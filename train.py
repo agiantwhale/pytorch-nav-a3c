@@ -1,6 +1,7 @@
 import time
 import torch
 import torch.nn.functional as F
+import traceback
 
 from envs import create_vizdoom_env, state_to_torch
 from model import ActorCritic
@@ -125,5 +126,5 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
 
             time.sleep(0.1)
         except Exception as err:
-            print(err)
             kill.set()
+            raise err
