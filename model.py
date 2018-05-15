@@ -64,8 +64,10 @@ class ActorCritic(torch.nn.Module):
         self.lstm2.bias_hh.data.fill_(0)
 
         if topology:
-            self.vin_fuser = nn.Conv1d(256 + 1, num_outputs * 2, 21, padding=10)
-            self.vin = nn.Conv1d(1, num_outputs * 2, 21, padding=10)
+            self.vin_fuser = nn.Conv1d(256 + 1, 4, 21, padding=10)
+            self.vin = nn.Conv1d(1, 4, 21, padding=10)
+            self.vin_pol1 = nn.Linear(num_outputs * 2 + 1, 256)
+            self.vin_pol2 = nn.Linear(256, num_outputs)
 
         self.train()
 
@@ -104,7 +106,7 @@ class ActorCritic(torch.nn.Module):
         # Topologies
         if self.topology:
             if topologies:
-                embeddings, values = topologies
+                embeddings, actions, values = topologies
 
                 r = torch.cat((torch.unsqueeze(embeddings[-1], dim=0), reward), dim=1)
                 r = torch.unsqueeze(r, dim=2)
@@ -117,21 +119,37 @@ class ActorCritic(torch.nn.Module):
                 else:
                     values = v
 
+                if actions is not None:
+                    actions = torch.cat((actions, action), dim=0)
+                else:
+                    actions = action
+
                 similarities = F.cosine_similarity(embeddings, f)
-                similarities = F.relu(similarities, inplace=True)
                 similarities = torch.unsqueeze(similarities, dim=1)
+
+                penalty = np.arange(similarities.shape[0], 0, -1, dtype=np.float32)
+                penalty = np.power(0.99, penalty)
+                penalty = torch.from_numpy(penalty)
+
+                similarities -= torch.unsqueeze(penalty, dim=1)
 
                 embeddings = torch.cat((embeddings, f), dim=0)
 
                 vin_sim, vin_idx = torch.max(similarities, dim=0)
                 vin_val = values[vin_idx]
+                vin_pol = actions[vin_idx]
 
                 val = val * (1 - vin_sim) + vin_val * vin_sim
+                pol = torch.cat((pol, vin_pol, torch.squeeze(val, dim=2)), dim=1)
+
+                pol = F.selu(self.vin_pol1(pol))
+                pol = F.selu(self.vin_pol2(pol))
             else:
                 embeddings = f
+                actions = None
                 values = None
 
-            topologies = (embeddings, values)
+            topologies = (embeddings, actions, values)
         else:
             topologies = None
 
