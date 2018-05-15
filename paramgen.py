@@ -11,6 +11,7 @@ parser.add_argument('config_name')
 parser.add_argument('email')
 parser.add_argument('--port', type=int, default=8097)
 parser.add_argument('--workers', type=int, default=16)
+parser.add_argument('--topology', action='store_true')
 
 
 def main(args):
@@ -40,7 +41,8 @@ def main(args):
                        num_processes=args.workers,
                        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
                        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
-                       visdom_port=args.port)
+                       visdom_port=args.port,
+                       topology=args.topology)
 
     headers = dedent("""\
     #PBS -N {}
@@ -67,8 +69,12 @@ def main(args):
             print(r)
     print("python {}/main.py {} \\".format(file_path, args.config_name))
     for idx, (flag, value) in enumerate(hyperparams.items()):
-        print(" " * 10 + "{:<50} {}".format('--{}={}'.format(flag.replace("_", "-"), value),
-                                            '\\' if idx + 1 < len(hyperparams) else str()))
+        if isinstance(value, bool):
+            flag = '--{}'.format(flag.replace("_", "-"))
+        else:
+            flag = '--{}={}'.format(flag.replace("_", "-"), value)
+
+        print(" " * 10 + "{:<50} {}".format(flag, '\\' if idx + 1 < len(hyperparams) else str()))
 
 
 if __name__ == "__main__":
