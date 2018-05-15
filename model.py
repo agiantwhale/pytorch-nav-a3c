@@ -29,8 +29,10 @@ def weights_init(m):
 
 
 class ActorCritic(torch.nn.Module):
-    def __init__(self, num_inputs, action_space):
+    def __init__(self, num_inputs, action_space, topology=False):
         super(ActorCritic, self).__init__()
+        self.topology = topology
+
         self.conv1 = nn.Conv2d(num_inputs, 16, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(16, 32, 4, stride=2, padding=1)
         self.fc1 = nn.Linear(32 * 10 * 10, 256)
@@ -61,8 +63,9 @@ class ActorCritic(torch.nn.Module):
         self.lstm2.bias_ih.data.fill_(0)
         self.lstm2.bias_hh.data.fill_(0)
 
-        self.vin_fuser = nn.Conv1d(256 + 1, num_outputs * 2, 21, padding=10)
-        self.vin = nn.Conv1d(1, num_outputs * 2, 21, padding=10)
+        if topology:
+            self.vin_fuser = nn.Conv1d(256 + 1, num_outputs * 2, 21, padding=10)
+            self.vin = nn.Conv1d(1, num_outputs * 2, 21, padding=10)
 
         self.train()
 
@@ -99,32 +102,37 @@ class ActorCritic(torch.nn.Module):
         pol = self.actor_linear(x)
 
         # Topologies
-        if topologies:
-            embeddings, values = topologies
+        if self.topology:
+            if topologies:
+                embeddings, values = topologies
 
-            r = torch.cat((torch.unsqueeze(embeddings[-1], dim=0), reward), dim=1)
-            r = torch.unsqueeze(r, dim=2)
-            q = self.vin_fuser(r)
-            v, _ = torch.max(q, dim=1, keepdim=True)
+                r = torch.cat((torch.unsqueeze(embeddings[-1], dim=0), reward), dim=1)
+                r = torch.unsqueeze(r, dim=2)
+                q = self.vin_fuser(r)
+                v, _ = torch.max(q, dim=1, keepdim=True)
 
-            if values is not None:
-                values = torch.cat((values, v), dim=0)
-                values, _ = torch.max(self.vin(values), dim=1, keepdim=True)
+                if values is not None:
+                    values = torch.cat((values, v), dim=0)
+                    values, _ = torch.max(self.vin(values), dim=1, keepdim=True)
+                else:
+                    values = v
+
+                similarities = F.cosine_similarity(embeddings, f)
+                similarities = F.relu(similarities, inplace=True)
+                similarities = torch.unsqueeze(similarities, dim=1)
+
+                embeddings = torch.cat((embeddings, f), dim=0)
+
+                vin_sim, vin_idx = torch.max(similarities, dim=0)
+                vin_val = values[vin_idx]
+
+                val = val * (1 - vin_sim) + vin_val * vin_sim
             else:
-                values = v
+                embeddings = f
+                values = None
 
-            similarities = F.cosine_similarity(embeddings, f)
-            similarities = F.relu(similarities, inplace=True)
-            similarities = torch.unsqueeze(similarities, dim=1)
-
-            embeddings = torch.cat((embeddings, f), dim=0)
-
-            vin_sim, vin_idx = torch.max(similarities, dim=0)
-            vin_val = values[vin_idx]
-
-            val = val * (1 - vin_sim) + vin_val * vin_sim
+            topologies = (embeddings, values)
         else:
-            embeddings = f
-            values = None
+            topologies = None
 
-        return val, pol, d_f, d_h, ((hx1, cx1), (hx2, cx2), (embeddings, values))
+        return val, pol, d_f, d_h, ((hx1, cx1), (hx2, cx2), topologies)

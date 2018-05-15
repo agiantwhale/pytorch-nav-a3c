@@ -25,7 +25,7 @@ def test(rank, args, shared_model, counter, loggers, kill):
     env = create_vizdoom_env(args.config_path, args.test_scenario_path)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
+    model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space, args.topology)
 
     model.eval()
 

@@ -60,6 +60,7 @@ parser.add_argument('--save-interval', type=int, default=20,
                     help='save model every n episodes (default: 20)')
 parser.add_argument('--eval-interval', type=int, default=60,
                     help='run evaluation every n seconds (default: 60)')
+parser.add_argument('--topology', action='store_true', help='Use topological mapping.')
 parser.add_argument('--checkpoint-path', help='file path to save models')
 parser.add_argument('--video-path', help='file path to save video')
 parser.add_argument('--visdom-port', type=int, default=8097, help='visdom port')
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     torch.set_num_threads(1)
     torch.manual_seed(args.seed)
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
-    shared_model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space)
+    shared_model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space, args.topology)
     shared_model.share_memory()
 
     if args.no_shared:
