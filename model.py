@@ -102,26 +102,25 @@ class ActorCritic(torch.nn.Module):
         if topologies:
             embeddings, values = topologies
 
-            r = torch.cat((torch.unsqueeze(embeddings[-1], 0), reward), dim=1)
+            r = torch.cat((torch.unsqueeze(embeddings[-1], dim=0), reward), dim=1)
             r = torch.unsqueeze(r, dim=2)
             q = self.vin_fuser(r)
-            v = torch.max(torch.squeeze(q))
+            v, _ = torch.max(q, dim=1, keepdim=True)
 
-            if values:
+            if values is not None:
                 values = torch.cat((values, v), dim=0)
-                values = torch.max(self.vin(values), q=1, keepdim=True)
+                values, _ = torch.max(self.vin(values), dim=1, keepdim=True)
             else:
                 values = v
 
             similarities = F.cosine_similarity(embeddings, f)
             similarities = F.relu(similarities, inplace=True)
+            similarities = torch.unsqueeze(similarities, dim=1)
 
             embeddings = torch.cat((embeddings, f), dim=0)
 
-            node = torch.argmax(similarities)
-
-            vin_sim = similarities[node]
-            vin_val = values[node]
+            vin_sim, vin_idx = torch.max(similarities, dim=0)
+            vin_val = values[vin_idx]
 
             val = val * (1 - vin_sim) + vin_val * vin_sim
         else:
