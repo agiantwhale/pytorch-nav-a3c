@@ -26,23 +26,25 @@ def main(args):
     if os.path.isfile(checkpoint_dir) or os.path.isfile(video_dir):
         print('remove {} / {}'.format(checkpoint_dir, video_dir))
 
-    hyperparams = dict(lr=np.random.uniform(np.power(10., -4), 5 * np.power(10., -4)),
-                       entropy_coef=np.random.uniform(np.power(10., -4), np.power(10., -3)),
-                       config_path='{}/doomfiles/default.cfg'.format(file_path),
-                       train_scenario_path='{}/doomfiles/11.wad'.format(file_path),
-                       test_scenario_path='{}/doomfiles/11.wad'.format(file_path),
-                       max_grad_norm=100,
-                       num_steps=np.random.choice([50, 75]),
-                       conv_depth_loss_coef=np.random.choice([1 / 3.0, 10, 33]),
-                       lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
-                       save_interval=1000,
-                       eval_interval=300,
-                       log_interval=2000,
-                       num_processes=args.workers,
-                       checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name) + '.ckpt',
-                       video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
-                       visdom_port=args.port,
-                       topology=args.topology)
+    hyperparams = dict(
+        lr=np.random.uniform(np.power(10., -4), 5 * np.power(10., -4)),
+        entropy_coef=np.random.uniform(np.power(10., -4), np.power(10., -3)),
+        config_path='{}/doomfiles/default.cfg'.format(file_path),
+        train_scenario_path='{}/doomfiles/11.wad'.format(file_path),
+        test_scenario_path='{}/doomfiles/11.wad'.format(file_path),
+        max_grad_norm=100,
+        num_steps=np.random.choice([50, 75]),
+        conv_depth_loss_coef=np.random.choice([1 / 3.0, 10, 33]),
+        lstm_depth_loss_coef=np.random.choice([1, 10 / 3.0, 10]),
+        save_interval=1000,
+        eval_interval=300,
+        log_interval=2000,
+        num_processes=args.workers,
+        checkpoint_path=os.path.join(root_base, 'checkpoint', args.config_name)
+        + '.ckpt',
+        video_path=os.path.join(root_base, 'media', args.config_name) + '.mp4',
+        visdom_port=args.port,
+        topology=args.topology)
 
     headers = dedent("""\
     #PBS -N {}
@@ -74,7 +76,8 @@ def main(args):
         else:
             flag = '--{}={}'.format(flag.replace("_", "-"), value)
 
-        print(" " * 10 + "{:<50} {}".format(flag, '\\' if idx + 1 < len(hyperparams) else str()))
+        print(" " * 10 + "{:<50} {}".format(
+            flag, '\\' if idx + 1 < len(hyperparams) else str()))
 
 
 if __name__ == "__main__":

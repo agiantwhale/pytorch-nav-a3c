@@ -23,7 +23,8 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
     env = create_vizdoom_env(args.config_path, args.train_scenario_path)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space, args.topology)
+    model = ActorCritic(env.observation_space.spaces[0].shape[0],
+                        env.action_space, args.topology)
 
     model.train()
 
@@ -44,13 +45,14 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             conv_depths = []
             lstm_depths = []
 
-            hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)),
-                      (torch.zeros(1, 256), torch.zeros(1, 256)))
+            hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)), (torch.zeros(
+                1, 256), torch.zeros(1, 256)))
 
             for step in range(args.num_steps):
                 episode_length += 1
                 torch_state = state_to_torch(state)
-                value, logit, depth_f, depth_h, hidden = model((torch_state, hidden))
+                value, logit, depth_f, depth_h, hidden = model((torch_state,
+                                                                hidden))
                 prob = F.softmax(logit)
                 log_prob = F.log_softmax(logit)
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -83,10 +85,12 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             values.append(R)
             policy_loss = 0
             value_loss = 0
-            conv_depth_loss = sum(F.binary_cross_entropy_with_logits(d, r)
-                                  for d, r in zip(conv_depths, real_depths))
-            lstm_depth_loss = sum(F.binary_cross_entropy_with_logits(d, r)
-                                  for d, r in zip(lstm_depths, real_depths))
+            conv_depth_loss = sum(
+                F.binary_cross_entropy_with_logits(d, r)
+                for d, r in zip(conv_depths, real_depths))
+            lstm_depth_loss = sum(
+                F.binary_cross_entropy_with_logits(d, r)
+                for d, r in zip(lstm_depths, real_depths))
 
             gae = torch.zeros(1, 1)
             for i in reversed(range(len(rewards))):
@@ -95,7 +99,8 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
                 value_loss = value_loss + 0.5 * advantage.pow(2)
 
                 # Generalized Advantage Estimataion
-                delta_t = rewards[i] + args.gamma * values[i + 1].data - values[i].data
+                delta_t = rewards[i] + args.gamma * values[i +
+                                                           1].data - values[i].data
                 gae = gae * args.gamma * args.tau + delta_t
                 policy_loss = policy_loss - log_probs[i] * gae - args.entropy_coef * entropies[i]
 
@@ -107,7 +112,8 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             final_loss += args.lstm_depth_loss_coef * lstm_depth_loss
             final_loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), args.max_grad_norm)
+            grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(),
+                                                      args.max_grad_norm)
             ensure_shared_grads(model, shared_model)
             optimizer.step()
 

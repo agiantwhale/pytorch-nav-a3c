@@ -22,13 +22,15 @@ class ViZDoomEnv(gym.Env):
 
         num_buttons = len(game.get_available_buttons())
         self.action_space = gym.spaces.Discrete(num_buttons)
-        self.action_map = tuple([action_idx == button_idx for button_idx in range(num_buttons)]
-                                for action_idx in range(num_buttons))
-        self.observation_space = gym.spaces.Tuple((gym.spaces.Box(0, 1, (3, 82, 82), dtype=np.float32),
-                                                   gym.spaces.Box(0, 1, (8, 4 * 16), dtype=np.float32),
-                                                   gym.spaces.Box(-1, 1, (0,), dtype=np.float32),
-                                                   gym.spaces.Discrete(num_buttons),
-                                                   gym.spaces.Box(-1, 1, (3,), dtype=np.float32)))
+        self.action_map = tuple(
+            [action_idx == button_idx for button_idx in range(num_buttons)]
+            for action_idx in range(num_buttons))
+        self.observation_space = gym.spaces.Tuple(
+            (gym.spaces.Box(0, 1, (3, 82, 82), dtype=np.float32),
+             gym.spaces.Box(0, 1, (8, 4 * 16), dtype=np.float32),
+             gym.spaces.Box(-1, 1, (0, ), dtype=np.float32),
+             gym.spaces.Discrete(num_buttons),
+             gym.spaces.Box(-1, 1, (3, ), dtype=np.float32)))
         self.current_map = None
         self.episode_reward = 0.0
         self.step_counter = 0
@@ -92,11 +94,14 @@ class ViZDoomEnv(gym.Env):
         last_action = np.array(self.game.get_last_action(), dtype=np.float32)
 
         # Velocity
-        velocity = np.array([self.game.get_game_variable(gamevar)
-                             for gamevar in (vizdoom.GameVariable.VELOCITY_X,
-                                             vizdoom.GameVariable.VELOCITY_Y,
-                                             vizdoom.GameVariable.VELOCITY_Z)],
-                            dtype=np.float32)
+        velocity = np.array(
+            [
+                self.game.get_game_variable(gamevar)
+                for gamevar in (vizdoom.GameVariable.VELOCITY_X,
+                                vizdoom.GameVariable.VELOCITY_Y,
+                                vizdoom.GameVariable.VELOCITY_Z)
+            ],
+            dtype=np.float32)
 
         return screen_buffer, depth_buffer, last_reward, last_action, velocity
 
@@ -106,7 +111,8 @@ class ViZDoomEnv(gym.Env):
         return [seed]
 
     def step(self, action, steps=1):
-        reward = self.game.make_action(self.action_map[np.asscalar(action)], steps)
+        reward = self.game.make_action(self.action_map[np.asscalar(action)],
+                                       steps)
         done = self.game.is_episode_finished()
         state = self._state()
         self.episode_reward += reward
@@ -202,18 +208,22 @@ def trajectory_to_video(wad, name, height, history, goal):
     global frames
 
     empty_map, xmin, ymin, scale = drawmap(wad, name, height)
-    cv2.circle(empty_map, (int(goal[0] * scale) - xmin, int(- goal[1] * scale) - ymin), 2, (255, 0, 0), -1)
+    cv2.circle(empty_map,
+               (int(goal[0] * scale) - xmin, int(-goal[1] * scale) - ymin), 2,
+               (255, 0, 0), -1)
 
     if frames is None:
-        frames = np.zeros([len(history)] + list(empty_map.shape), dtype=np.uint8)
+        frames = np.zeros(
+            [len(history)] + list(empty_map.shape), dtype=np.uint8)
 
     last_img = empty_map
     for idx, pose in enumerate(history):
         x, y, z, rot = pose
-        rot = - np.deg2rad(rot)
+        rot = -np.deg2rad(rot)
 
-        point = (int(x * scale) - xmin, int(- y * scale) - ymin)
-        shift = (point[0] + int(10 * np.cos(rot)), point[1] + int(10 * np.sin(rot)))
+        point = (int(x * scale) - xmin, int(-y * scale) - ymin)
+        shift = (point[0] + int(10 * np.cos(rot)),
+                 point[1] + int(10 * np.sin(rot)))
 
         frame = last_img.copy()
         cv2.circle(frame, point, 2, (0, 0, 255), -1)

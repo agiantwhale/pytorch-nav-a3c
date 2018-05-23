@@ -25,7 +25,8 @@ def test(rank, args, shared_model, counter, loggers, kill):
     env = create_vizdoom_env(args.config_path, args.test_scenario_path)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.spaces[0].shape[0], env.action_space, args.topology)
+    model = ActorCritic(env.observation_space.spaces[0].shape[0],
+                        env.action_space, args.topology)
 
     model.eval()
 
@@ -36,8 +37,8 @@ def test(rank, args, shared_model, counter, loggers, kill):
     start_time = time.time()
 
     # a quick hack to prevent the agent from stucking
-    hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)),
-              (torch.zeros(1, 256), torch.zeros(1, 256)))
+    hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)), (torch.zeros(1, 256),
+                                                         torch.zeros(1, 256)))
     actions = deque(maxlen=100)
     episode_length = 0
     episode_counter = 0
@@ -65,7 +66,8 @@ def test(rank, args, shared_model, counter, loggers, kill):
                 if done:
                     break
                 else:
-                    obs_frame = (np.moveaxis(state[0], 0, -1) * 255).astype(np.uint8)
+                    obs_frame = (np.moveaxis(state[0], 0, -1) * 255).astype(
+                        np.uint8)
 
                     if isinstance(obs_history, list):
                         obs_history.append(obs_frame)
@@ -85,15 +87,22 @@ def test(rank, args, shared_model, counter, loggers, kill):
                     obs_history = np.array(obs_history)
 
                 if loggers:
-                    loggers['test_reward'](env.game.get_total_reward(), episode_counter)
-                    loggers['video'](video(env.wad, env.current_map, goal_loc, obs_history, pose_history),
+                    loggers['test_reward'](env.game.get_total_reward(),
+                                           episode_counter)
+                    loggers['video'](video(env.wad, env.current_map, goal_loc,
+                                           obs_history, pose_history),
                                      episode_counter)
-                    loggers['test_time'](time.time() - episode_start_time, episode_counter)
+                    loggers['test_time'](time.time() - episode_start_time,
+                                         episode_counter)
 
-                print("Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".format(
-                    time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)),
-                    counter.value, counter.value / (time.time() - start_time),
-                    reward_sum, episode_length))
+                print(
+                    "Time {}, num episodes {}, FPS {:.0f}, episode reward {}, episode length {}".
+                    format(
+                        time.strftime("%Hh %Mm %Ss",
+                                      time.gmtime(time.time() - start_time)),
+                        counter.value,
+                        counter.value / (time.time() - start_time), reward_sum,
+                        episode_length))
                 reward_sum = 0
                 episode_length = 0
                 actions.clear()
