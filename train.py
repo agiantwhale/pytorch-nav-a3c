@@ -45,8 +45,7 @@ def train(rank, args, shared_model, counter, lock, optimizer, loggers, kill):
             conv_depths = []
             lstm_depths = []
 
-            hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)), (torch.zeros(
-                1, 256), torch.zeros(1, 256)))
+            hidden = ((torch.zeros(1, 64), torch.zeros(1, 64)), (torch.zeros(1, 256), torch.zeros(1, 256)))
 
             for step in range(args.num_steps):
                 episode_length += 1
