@@ -37,7 +37,7 @@ class ActorCritic(torch.nn.Module):
         self.conv2 = nn.Conv2d(16, 32, 4, stride=2, padding=1)
         self.fc1 = nn.Linear(32 * 10 * 10, 256)
 
-        self.lstm1 = nn.LSTMCell(256 + 1 + 1, 64)
+        self.lstm1 = nn.LSTMCell(256 + 1 + (1 if topology else 0), 64)
         self.lstm2 = nn.LSTMCell(256 + 64 + 3 + 3, 256)
 
         self.fc_d1_f = nn.Linear(256, 128)
@@ -107,7 +107,9 @@ class ActorCritic(torch.nn.Module):
             topologies = None
 
         # Nav-A3C
-        hx1, cx1 = self.lstm1(torch.cat((x, reward, best_similarity), dim=1), (hx1, cx1))
+        hx1, cx1 = self.lstm1(torch.cat((x, reward, best_similarity)
+                                        if self.topology else
+                                        (x, reward), dim=1), (hx1, cx1))
         x = hx1
         hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
         x = hx2
