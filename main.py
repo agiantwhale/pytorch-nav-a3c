@@ -85,6 +85,11 @@ parser.add_argument(
     default=10**8,
     help='maximum steps of a training run (default: 100000000)')
 parser.add_argument(
+    '--max-test-episodes',
+    type=int,
+    default=10**8,
+    help='maximum steps of a test episodes to run (default: 100000000)')
+parser.add_argument(
     '--config-path',
     default='./doomfiles/default.cfg',
     help='ViZDoom configuration path (default: ./doomfiles/default.cfg)')
@@ -288,8 +293,8 @@ if __name__ == '__main__':
 
     p = mp.Process(
         target=test,
-        args=(args.num_processes, args, shared_model, (counter, steps),
-              logging, kill))
+        args=(args.num_processes, args, shared_model,
+              (counter, steps, args.max_test_episodes), logging, kill))
     p.start()
     processes.append(p)
 

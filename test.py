@@ -18,7 +18,7 @@ def video(wad, map, goal_loc, obs_history, pose_history):
 
 
 def test(rank, args, shared_model, counter, loggers, kill):
-    counter, steps = counter
+    counter, steps, max_episodes = counter
 
     torch.manual_seed(args.seed + rank)
 
@@ -50,7 +50,13 @@ def test(rank, args, shared_model, counter, loggers, kill):
 
     model.load_state_dict(shared_model.state_dict())
 
-    while not kill.is_set() and steps.value <= args.max_episode_steps:
+    while not kill.is_set():
+        if steps.value > args.max_episode_steps:
+            break
+
+        if episode_counter > max_episodes:
+            break
+
         try:
             episode_start_time = time.time()
             episode_length += 1
