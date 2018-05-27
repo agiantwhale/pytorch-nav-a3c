@@ -37,7 +37,7 @@ class ActorCritic(torch.nn.Module):
         self.conv2 = nn.Conv2d(16, 32, 4, stride=2, padding=1)
         self.fc1 = nn.Linear(32 * 10 * 10, 256)
 
-        self.lstm1 = nn.LSTMCell(256 + 1 + (1 if topology else 0), 64)
+        self.lstm1 = nn.LSTMCell(256 + 1, 64)
         self.lstm2 = nn.LSTMCell(256 + 64 + 3 + 3, 256)
 
         self.fc_d1_f = nn.Linear(256, 128)
@@ -47,8 +47,9 @@ class ActorCritic(torch.nn.Module):
         self.fc_d2_h = nn.Linear(128, 64 * 8)
 
         num_outputs = action_space.n
-        self.critic_linear = nn.Linear(256, 1)
-        self.actor_linear = nn.Linear(256, num_outputs)
+        num_augments = 1 if topology else 0
+        self.critic_linear = nn.Linear(256 + num_augments, 1)
+        self.actor_linear = nn.Linear(256 + num_augments, num_outputs)
 
         self.apply(weights_init)
         self.actor_linear.weight.data = normalized_columns_initializer(
@@ -88,6 +89,19 @@ class ActorCritic(torch.nn.Module):
         x = F.selu(self.fc1(x))
         f = x
 
+        # Nav-A3C
+        hx1, cx1 = self.lstm1(torch.cat((x, reward), dim=1), (hx1, cx1))
+        x = hx1
+        hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
+        x = hx2
+
+        # Aux. tasks
+        d_f = self.fc_d1_f(f)
+        d_f = self.fc_d2_f(d_f)
+
+        d_h = self.fc_d1_h(hx2)
+        d_h = self.fc_d2_h(d_h)
+
         # Topologies
         if self.topology:
             if topologies is not None:
@@ -103,22 +117,9 @@ class ActorCritic(torch.nn.Module):
                 embeddings = f
 
             topologies = embeddings
+            x = torch.cat((x, best_similarity), dim=1)
         else:
             topologies = None
-
-        # Nav-A3C
-        hx1, cx1 = self.lstm1(torch.cat((x, reward, best_similarity)
-                                        if self.topology else
-                                        (x, reward), dim=1), (hx1, cx1))
-        x = hx1
-        hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
-        x = hx2
-
-        d_f = self.fc_d1_f(f)
-        d_f = self.fc_d2_f(d_f)
-
-        d_h = self.fc_d1_h(hx2)
-        d_h = self.fc_d2_h(d_h)
 
         val = self.critic_linear(x)
         pol = self.actor_linear(x)
