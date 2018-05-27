@@ -71,13 +71,16 @@ def main(args):
             print(r)
     print("python {}/main.py {} \\".format(file_path, args.config_name))
     for idx, (flag, value) in enumerate(hyperparams.items()):
-        if isinstance(value, bool):
-            flag = '--{}'.format(flag.replace("_", "-"))
-        else:
-            flag = '--{}={}'.format(flag.replace("_", "-"), value)
+        flag_name = flag.replace("_", "-")
+        flag_string = '--{}'.format(flag_name)
+
+        if isinstance(value, float):
+            flag_string += '={:.6f}'.format(value)
+        elif not isinstance(value, bool):
+            flag_string += '={}'.format(value)
 
         print(" " * 10 + "{:<50} {}".format(
-            flag, '\\' if idx + 1 < len(hyperparams) else str()))
+            flag_string, '\\' if idx + 1 < len(hyperparams) else str()))
 
 
 if __name__ == "__main__":
