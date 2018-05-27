@@ -92,7 +92,8 @@ class ActorCritic(torch.nn.Module):
         # Nav-A3C
         hx1, cx1 = self.lstm1(torch.cat((x, reward), dim=1), (hx1, cx1))
         x = hx1
-        hx2, cx2 = self.lstm2(torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
+        hx2, cx2 = self.lstm2(
+            torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
         x = hx2
 
         # Aux. tasks
