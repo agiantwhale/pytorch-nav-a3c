@@ -31,13 +31,17 @@ def weights_init(m):
 class ActorCritic(torch.nn.Module):
     def __init__(self, num_inputs, action_space, topology=False):
         super(ActorCritic, self).__init__()
+
         self.topology = topology
+
+        num_outputs = action_space.n
+        num_augments = 5 if topology else 0
 
         self.conv1 = nn.Conv2d(num_inputs, 16, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(16, 32, 4, stride=2, padding=1)
         self.fc1 = nn.Linear(32 * 10 * 10, 256)
 
-        self.lstm1 = nn.LSTMCell(256 + 1, 64)
+        self.lstm1 = nn.LSTMCell(256 + 1 + num_augments, 64)
         self.lstm2 = nn.LSTMCell(256 + 64 + 3 + 3, 256)
 
         self.fc_d1_f = nn.Linear(256, 128)
@@ -46,8 +50,6 @@ class ActorCritic(torch.nn.Module):
         self.fc_d1_h = nn.Linear(256, 128)
         self.fc_d2_h = nn.Linear(128, 64 * 8)
 
-        num_outputs = action_space.n
-        num_augments = 1 if topology else 0
         self.critic_linear = nn.Linear(256 + num_augments, 1)
         self.actor_linear = nn.Linear(256 + num_augments, num_outputs)
 
@@ -89,11 +91,42 @@ class ActorCritic(torch.nn.Module):
         x = F.selu(self.fc1(x))
         f = x
 
+        # Topologies
+        if self.topology:
+            if topologies is not None:
+                embeddings = topologies
+                embeddings_size = embeddings.shape[0]
+
+                similarities = F.cosine_similarity(embeddings, f)
+                similarities = torch.unsqueeze(similarities, dim=0)
+
+                if embeddings_size < 5:
+                    filler = torch.zeros((1, 5 - embeddings_size))
+                    best_similarities = torch.cat(
+                        (similarities, filler), dim=1)
+                else:
+                    best_similarities, _ = torch.topk(similarities, 5)
+
+                embeddings = torch.cat((embeddings, f), dim=0)
+            else:
+                best_similarities = torch.zeros((1, 5))
+                embeddings = f
+
+            topologies = embeddings
+        else:
+            topologies = None
+
         # Nav-A3C
-        hx1, cx1 = self.lstm1(torch.cat((x, reward), dim=1), (hx1, cx1))
+        x = torch.cat((x, reward), dim=1)
+
+        if self.topology:
+            x = torch.cat((x, best_similarities), dim=1)
+
+        hx1, cx1 = self.lstm1(x, (hx1, cx1))
         x = hx1
-        hx2, cx2 = self.lstm2(
-            torch.cat((f, x, velocity, action), dim=1), (hx2, cx2))
+
+        x = torch.cat((f, x, velocity, action), dim=1)
+        hx2, cx2 = self.lstm2(x, (hx2, cx2))
         x = hx2
 
         # Aux. tasks
@@ -103,24 +136,8 @@ class ActorCritic(torch.nn.Module):
         d_h = self.fc_d1_h(hx2)
         d_h = self.fc_d2_h(d_h)
 
-        # Topologies
         if self.topology:
-            if topologies is not None:
-                embeddings = topologies
-
-                similarities = F.cosine_similarity(embeddings, f)
-                similarities = torch.unsqueeze(similarities, dim=1)
-
-                best_similarity = torch.max(similarities).view(1, 1)
-                embeddings = torch.cat((embeddings, f), dim=0)
-            else:
-                best_similarity = torch.zeros((1, 1))
-                embeddings = f
-
-            topologies = embeddings
-            x = torch.cat((x, best_similarity), dim=1)
-        else:
-            topologies = None
+            x = torch.cat((x, best_similarities), dim=1)
 
         val = self.critic_linear(x)
         pol = self.actor_linear(x)
