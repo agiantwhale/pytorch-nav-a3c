@@ -95,12 +95,14 @@ parser.add_argument(
     help='ViZDoom configuration path (default: ./doomfiles/default.cfg)')
 parser.add_argument(
     '--train-scenario-path',
-    default='./doomfiles/11.wad',
-    help='ViZDoom scenario path for training (default: ./doomfiles/11.wad)')
+    default='./doomfiles/11_TRAIN.wad',
+    help=
+    'ViZDoom scenario path for training (default: ./doomfiles/11_TRAIN.wad)')
 parser.add_argument(
     '--test-scenario-path',
-    default='./doomfiles/11.wad',
-    help='ViZDoom scenario path for testing (default: ./doomfiles/11.wad)')
+    default='./doomfiles/11_TEST.wad',
+    help='ViZDoom scenario path for testing (default: ./doomfiles/11_TEST.wad)'
+)
 parser.add_argument(
     '--no-shared',
     default=False,

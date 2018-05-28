@@ -50,8 +50,8 @@ class ActorCritic(torch.nn.Module):
         self.fc_d1_h = nn.Linear(256, 128)
         self.fc_d2_h = nn.Linear(128, 64 * 8)
 
-        self.critic_linear = nn.Linear(256 + num_augments, 1)
-        self.actor_linear = nn.Linear(256 + num_augments, num_outputs)
+        self.critic_linear = nn.Linear(256, 1)
+        self.actor_linear = nn.Linear(256, num_outputs)
 
         self.apply(weights_init)
         self.actor_linear.weight.data = normalized_columns_initializer(
@@ -135,9 +135,6 @@ class ActorCritic(torch.nn.Module):
 
         d_h = self.fc_d1_h(hx2)
         d_h = self.fc_d2_h(d_h)
-
-        if self.topology:
-            x = torch.cat((x, best_similarities), dim=1)
 
         val = self.critic_linear(x)
         pol = self.actor_linear(x)
