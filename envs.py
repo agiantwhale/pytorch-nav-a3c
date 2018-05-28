@@ -108,6 +108,7 @@ class ViZDoomEnv(gym.Env):
     def seed(self, seed=None):
         if seed is not None:
             self.game.set_seed(seed)
+            np.random.seed(seed)
         return [seed]
 
     def step(self, action, steps=1):
